@@ -1,6 +1,7 @@
 package com.marcuspaulo.tarefas.data
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 
 class TaskRepository(private val dao: TaskDao, private val tagDao: TagDao) {
@@ -11,6 +12,12 @@ class TaskRepository(private val dao: TaskDao, private val tagDao: TagDao) {
         dao.getPendingCountsBetween(start, end)
 
     fun searchTasks(query: String): Flow<List<TaskWithTags>> = dao.searchTasks(query)
+
+    /** Pendentes até hoje, da prioridade mais alta pra mais baixa. */
+    fun pendingTasksUpTo(today: LocalDate): Flow<List<Task>> =
+        dao.getPendingTasksUpTo(today).map { tasks -> tasks.sortedByDescending { it.priority.ordinal } }
+
+    suspend fun taskWithTagsById(id: Long): TaskWithTags? = dao.getTaskWithTagsById(id)
 
     val allTags: Flow<List<Tag>> = tagDao.getAllTags()
 

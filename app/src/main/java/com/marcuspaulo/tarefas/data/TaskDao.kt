@@ -28,6 +28,14 @@ interface TaskDao {
     suspend fun getById(id: Long): Task?
 
     @Transaction
+    @Query("SELECT * FROM tasks WHERE id = :id")
+    suspend fun getTaskWithTagsById(id: Long): TaskWithTags?
+
+    /** Pendentes até hoje, incluindo atrasadas que o rollover ainda não empurrou (usado pelo widget). */
+    @Query("SELECT * FROM tasks WHERE completed = 0 AND date <= :today ORDER BY date ASC, createdAt ASC")
+    fun getPendingTasksUpTo(today: LocalDate): Flow<List<Task>>
+
+    @Transaction
     @Query("SELECT * FROM tasks WHERE title LIKE '%' || :query || '%' OR description LIKE '%' || :query || '%' ORDER BY date DESC")
     fun searchTasks(query: String): Flow<List<TaskWithTags>>
 

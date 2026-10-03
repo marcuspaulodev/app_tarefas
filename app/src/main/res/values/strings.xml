@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Tarefas</string>
+    <string name="widget_description">Tarefas pendentes de hoje</string>
 </resources>
