@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import androidx.glance.appwidget.updateAll
 import androidx.room.InvalidationTracker
 import com.marcuspaulo.tarefas.data.AppDatabase
+import com.marcuspaulo.tarefas.notifications.DailyCheckScheduler
 import com.marcuspaulo.tarefas.widget.MidnightWidgetWorker
 import com.marcuspaulo.tarefas.widget.TarefasWidget
 import kotlinx.coroutines.CoroutineScope
@@ -17,6 +18,7 @@ class TarefasApplication : Application() {
 
     companion object {
         const val DEADLINE_CHANNEL_ID = "deadline_reminders"
+        const val DAILY_CHECK_CHANNEL_ID = "daily_checks"
     }
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -30,7 +32,16 @@ class TarefasApplication : Application() {
         ).apply {
             description = "Avisa quando uma tarefa vence no dia"
         }
-        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        val dailyCheckChannel = NotificationChannel(
+            DAILY_CHECK_CHANNEL_ID,
+            "Checagem diária",
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = "Lembra de checar as tarefas pendentes às 8h, 13h e 18h"
+        }
+        getSystemService(NotificationManager::class.java)
+            .createNotificationChannels(listOf(channel, dailyCheckChannel))
+        DailyCheckScheduler.scheduleAll(this)
 
         // Qualquer escrita na tabela de tarefas (criar, editar, concluir, excluir,
         // restaurar backup) redesenha o widget — sem precisar chamar nada no ViewModel.
