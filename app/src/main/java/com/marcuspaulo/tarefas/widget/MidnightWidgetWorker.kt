@@ -7,8 +7,6 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import com.marcuspaulo.tarefas.data.AppDatabase
-import com.marcuspaulo.tarefas.data.TaskRepository
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -16,8 +14,8 @@ import java.time.LocalTime
 import java.util.concurrent.TimeUnit
 
 /**
- * Roda uma vez por dia logo após a meia-noite: faz o rollover das tarefas
- * não concluídas e redesenha o widget pro novo "hoje", mesmo sem o app ser aberto.
+ * Roda uma vez por dia logo após a meia-noite: redesenha o widget pro novo
+ * "hoje", mesmo sem o app ser aberto.
  */
 class MidnightWidgetWorker(
     context: Context,
@@ -25,8 +23,6 @@ class MidnightWidgetWorker(
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        val database = AppDatabase.getInstance(applicationContext)
-        TaskRepository(database.taskDao(), database.tagDao()).rolloverOverdueTasks()
         TarefasWidget().updateAll(applicationContext)
         return Result.success()
     }

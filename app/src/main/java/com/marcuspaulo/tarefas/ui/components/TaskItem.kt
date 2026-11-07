@@ -85,7 +85,7 @@ fun TaskItem(
             }
             if (showDate) {
                 Text(
-                    text = task.date.format(FULL_DATE_FMT),
+                    text = task.effectiveDate().format(FULL_DATE_FMT),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

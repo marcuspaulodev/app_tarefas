@@ -82,7 +82,7 @@ fun AddTaskDialog(
     val isEditing = initial != null
     var title by remember { mutableStateOf(initial?.title ?: "") }
     var description by remember { mutableStateOf(initial?.description ?: "") }
-    var taskDate by remember { mutableStateOf(initial?.date ?: date) }
+    var taskDate by remember { mutableStateOf(date) }
     var deadline by remember { mutableStateOf(initial?.deadline) }
     var priority by remember { mutableStateOf(initial?.priority ?: Priority.MEDIUM) }
     var showDayPicker by remember { mutableStateOf(false) }

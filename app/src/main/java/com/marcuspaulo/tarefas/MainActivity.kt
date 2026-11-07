@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.marcuspaulo.tarefas.backup.BackupManager
@@ -72,6 +73,10 @@ class MainActivity : ComponentActivity() {
                     val viewModel: TaskViewModel = viewModel(
                         factory = TaskViewModel.Factory(repository, reminderScheduler)
                     )
+                    LifecycleResumeEffect(viewModel) {
+                        viewModel.refreshToday()
+                        onPauseOrDispose { }
+                    }
                     TarefasApp(
                         viewModel = viewModel,
                         onExportBackup = { exportLauncher.launch("tarefas_backup_${LocalDate.now()}.json") },

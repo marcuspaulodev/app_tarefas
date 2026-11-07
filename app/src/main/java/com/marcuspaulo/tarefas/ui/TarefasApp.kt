@@ -238,7 +238,7 @@ fun TarefasApp(
 
     editingTask?.let { taskWithTags ->
         AddTaskDialog(
-            date = taskWithTags.task.date,
+            date = taskWithTags.task.effectiveDate(),
             availableTags = tags,
             initial = taskWithTags.task,
             initialTagIds = taskWithTags.tags.map { it.id }.toSet(),

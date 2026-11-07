@@ -15,14 +15,24 @@ data class DateCount(val date: LocalDate, val count: Int)
 interface TaskDao {
 
     @Transaction
-    @Query("SELECT * FROM tasks WHERE date = :date ORDER BY completed ASC, createdAt ASC")
-    fun getTasksForDate(date: LocalDate): Flow<List<TaskWithTags>>
+    @Query(
+        """
+        SELECT * FROM tasks
+        WHERE CASE WHEN completed = 0 THEN MAX(date, :today) ELSE date END = :date
+        ORDER BY completed ASC, createdAt ASC
+        """
+    )
+    fun getTasksForDate(date: LocalDate, today: LocalDate): Flow<List<TaskWithTags>>
 
-    @Query("SELECT date, COUNT(*) as count FROM tasks WHERE date BETWEEN :start AND :end AND completed = 0 GROUP BY date")
-    fun getPendingCountsBetween(start: LocalDate, end: LocalDate): Flow<List<DateCount>>
-
-    @Query("SELECT * FROM tasks WHERE completed = 0 AND date < :today")
-    suspend fun getIncompleteTasksBefore(today: LocalDate): List<Task>
+    @Query(
+        """
+        SELECT shownOn AS date, COUNT(*) AS count
+        FROM (SELECT MAX(date, :today) AS shownOn FROM tasks WHERE completed = 0)
+        WHERE shownOn BETWEEN :start AND :end
+        GROUP BY shownOn
+        """
+    )
+    fun getPendingCountsBetween(start: LocalDate, end: LocalDate, today: LocalDate): Flow<List<DateCount>>
 
     @Query("SELECT * FROM tasks WHERE id = :id")
     suspend fun getById(id: Long): Task?
@@ -31,16 +41,13 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE id = :id")
     suspend fun getTaskWithTagsById(id: Long): TaskWithTags?
 
-    /** Pendentes até hoje, incluindo atrasadas que o rollover ainda não empurrou (usado pelo widget). */
+    /** Pendentes até hoje, incluindo as atrasadas (usado pelo widget e pela checagem diária). */
     @Query("SELECT * FROM tasks WHERE completed = 0 AND date <= :today ORDER BY date ASC, createdAt ASC")
     fun getPendingTasksUpTo(today: LocalDate): Flow<List<Task>>
 
     @Transaction
     @Query("SELECT * FROM tasks WHERE title LIKE '%' || :query || '%' OR description LIKE '%' || :query || '%' ORDER BY date DESC")
     fun searchTasks(query: String): Flow<List<TaskWithTags>>
-
-    @Update
-    suspend fun updateTasks(tasks: List<Task>)
 
     @Insert
     suspend fun insert(task: Task): Long

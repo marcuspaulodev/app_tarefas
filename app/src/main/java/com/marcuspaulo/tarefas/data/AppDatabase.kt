@@ -10,7 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 @Database(
     entities = [Task::class, Tag::class, TaskTagCrossRef::class],
     version = 4,
-    exportSchema = false
+    exportSchema = true
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -38,9 +38,10 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "tarefas.db"
                 )
-                    // App em desenvolvimento: em vez de escrever migrations, recria o banco
-                    // ao mudar o schema. Perde dados de teste, mas evita crash por schema divergente.
-                    .fallbackToDestructiveMigration()
+                    .addMigrations(*ALL_MIGRATIONS)
+                    // As versões 1 a 3 são anteriores ao uso real do app e nunca tiveram
+                    // migration. A partir da 4, mudar o schema exige uma em Migrations.kt.
+                    .fallbackToDestructiveMigrationFrom(1, 2, 3)
                     .addCallback(SEED_TAGS_CALLBACK)
                     .build().also { INSTANCE = it }
             }
