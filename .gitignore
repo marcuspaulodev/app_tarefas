@@ -1,15 +1,7 @@
-*.iml
-.gradle/
-/local.properties
-.idea/
 .DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
-*.apk
-*.ap_
-*.dex
-/app/build
-/app/release
-.kotlin/
+.idea/
+.vscode/
+# Caches do Gradle de quando o app ficava na raiz
+/.gradle/
+/.kotlin/
+/build/

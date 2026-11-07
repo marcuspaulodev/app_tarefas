@@ -1,0 +1,100 @@
+{
+  "_comment": "Casos compartilhados entre o app (Kotlin) e o backend (PHP). Os dois lados rodam estes casos nos testes; se uma regra mudar, mude aqui e nos dois. Dias da semana em WEEKLY seguem a ISO 8601 (1 = segunda, 7 = domingo).",
+  "next_occurrence": [
+    {
+      "rule": "DAILY",
+      "date": "2026-11-10",
+      "next": "2026-11-11"
+    },
+    {
+      "rule": "DAILY",
+      "date": "2026-12-31",
+      "next": "2027-01-01"
+    },
+    {
+      "rule": "DAILY",
+      "date": "2028-02-28",
+      "next": "2028-02-29"
+    },
+    {
+      "rule": "WEEKLY:1,3,5",
+      "date": "2026-11-10",
+      "next": "2026-11-11"
+    },
+    {
+      "rule": "WEEKLY:1,3,5",
+      "date": "2026-11-13",
+      "next": "2026-11-16"
+    },
+    {
+      "rule": "WEEKLY:1",
+      "date": "2026-11-09",
+      "next": "2026-11-16"
+    },
+    {
+      "rule": "WEEKLY:7",
+      "date": "2026-11-14",
+      "next": "2026-11-15"
+    },
+    {
+      "rule": "WEEKLY:2",
+      "date": "2026-12-29",
+      "next": "2027-01-05"
+    },
+    {
+      "rule": "WEEKLY:5,1",
+      "date": "2026-11-12",
+      "next": "2026-11-13"
+    }
+  ],
+  "invalid_rules": [
+    null,
+    "",
+    "MONTHLY",
+    "WEEKLY:",
+    "WEEKLY:x"
+  ],
+  "occurrence_id": [
+    {
+      "series_id": "0193a5b0-7c00-7000-8000-000000000001",
+      "date": "2026-11-11",
+      "id": "b2acdf38-278b-3d94-a847-bcb019f535e8"
+    },
+    {
+      "series_id": "0193a5b0-7c00-7000-8000-000000000001",
+      "date": "2026-11-12",
+      "id": "b16d9b02-9171-3310-b671-39b592c4afbf"
+    },
+    {
+      "series_id": "019a5f3e-2b41-7d2a-9c3e-5f6a7b8c9d0e",
+      "date": "2027-01-01",
+      "id": "b0c5732a-ae14-367d-8c66-bae01c75d6b3"
+    }
+  ],
+  "shown_on": [
+    {
+      "date": "2026-11-05",
+      "completed": false,
+      "today": "2026-11-10",
+      "shown_on": "2026-11-10"
+    },
+    {
+      "date": "2026-11-05",
+      "completed": true,
+      "today": "2026-11-10",
+      "shown_on": "2026-11-05"
+    },
+    {
+      "date": "2026-11-10",
+      "completed": false,
+      "today": "2026-11-10",
+      "shown_on": "2026-11-10"
+    },
+    {
+      "date": "2026-11-15",
+      "completed": false,
+      "today": "2026-11-10",
+      "shown_on": "2026-11-15"
+    }
+  ]
+}
