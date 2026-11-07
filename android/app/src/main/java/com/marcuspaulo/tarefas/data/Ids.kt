@@ -30,9 +30,13 @@ object Ids {
     fun occurrenceId(seriesId: String, date: LocalDate): String =
         UUID.nameUUIDFromBytes("$seriesId/$date".toByteArray()).toString()
 
-    /** Número estável para APIs que só aceitam Long como chave, como a lista do widget. */
+    /**
+     * Número estável e não negativo para APIs que só aceitam Long como chave, como a
+     * lista do widget. O Glance recusa chaves abaixo de -0x4000000000000000 (faixa
+     * reservada) e, se uma única tarefa cair ali, o widget inteiro mostra erro.
+     */
     fun stableLong(id: String): Long =
-        UUID.fromString(id).let { it.mostSignificantBits xor it.leastSignificantBits }
+        UUID.fromString(id).let { it.mostSignificantBits xor it.leastSignificantBits } and Long.MAX_VALUE
 
     /** ID de notificação não negativo: os negativos ficam para avisos fixos, como a checagem diária. */
     fun notificationId(id: String): Int = id.hashCode() and Int.MAX_VALUE

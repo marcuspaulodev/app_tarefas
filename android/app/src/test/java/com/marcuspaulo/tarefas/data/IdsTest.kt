@@ -44,6 +44,18 @@ class IdsTest {
     }
 
     @Test
+    fun `chave do widget nunca cai na faixa reservada do Glance`() {
+        val ids = (1..10_000).map { Ids.newId() } +
+            (1..1_000).map { Ids.occurrenceId(Ids.newId(), LocalDate.of(2026, 11, 10)) }
+
+        ids.forEach { id ->
+            val key = Ids.stableLong(id)
+            assertTrue("$id -> $key", key >= 0)
+            assertEquals(key, Ids.stableLong(id))
+        }
+    }
+
+    @Test
     fun `id de notificacao nunca e negativo`() {
         repeat(1000) { assertTrue(Ids.notificationId(Ids.newId()) >= 0) }
     }
