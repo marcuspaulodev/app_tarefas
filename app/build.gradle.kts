@@ -36,6 +36,16 @@ android {
     buildFeatures {
         compose = true
     }
+
+    // Os testes de migration leem os schemas exportados pelo Room. Os testes do Robolectric
+    // só enxergam os assets do app, então eles entram no build debug (o release não leva).
+    sourceSets {
+        getByName("debug").assets.srcDir("$projectDir/schemas")
+    }
+
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 ksp {
@@ -69,5 +79,6 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.13")
     testImplementation("androidx.test:core:1.6.1")
+    testImplementation("androidx.room:room-testing:2.6.1")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
 }

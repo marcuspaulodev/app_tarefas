@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [Task::class, Tag::class, TaskTagCrossRef::class],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -22,12 +22,22 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
+        private val DEFAULT_TAGS = listOf(
+            "Trabalho" to "#3D5AFE",
+            "Casa" to "#00C853",
+            "Faculdade" to "#FF6D00"
+        )
+
         private val SEED_TAGS_CALLBACK = object : RoomDatabase.Callback() {
             override fun onCreate(db: SupportSQLiteDatabase) {
                 super.onCreate(db)
-                db.execSQL("INSERT INTO tags (name, colorHex) VALUES ('Trabalho', '#3D5AFE')")
-                db.execSQL("INSERT INTO tags (name, colorHex) VALUES ('Casa', '#00C853')")
-                db.execSQL("INSERT INTO tags (name, colorHex) VALUES ('Faculdade', '#FF6D00')")
+                val now = System.currentTimeMillis()
+                DEFAULT_TAGS.forEach { (name, color) ->
+                    db.execSQL(
+                        "INSERT INTO tags (id, name, colorHex, updatedAt, deletedAt) VALUES (?, ?, ?, ?, NULL)",
+                        arrayOf<Any?>(Ids.newId(now), name, color, now)
+                    )
+                }
             }
         }
 

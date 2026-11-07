@@ -37,6 +37,7 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.marcuspaulo.tarefas.MainActivity
 import com.marcuspaulo.tarefas.data.AppDatabase
+import com.marcuspaulo.tarefas.data.Ids
 import com.marcuspaulo.tarefas.data.Task
 import com.marcuspaulo.tarefas.data.TaskRepository
 import com.marcuspaulo.tarefas.ui.theme.priorityColor
@@ -98,7 +99,7 @@ private fun WidgetContent(tasks: List<Task>?, today: LocalDate) {
                 modifier = GlanceModifier.fillMaxWidth().clickable(openApp)
             )
             else -> LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
-                items(tasks, itemId = { it.id }) { task ->
+                items(tasks, itemId = { Ids.stableLong(it.id) }) { task ->
                     TaskRow(task = task, today = today)
                 }
             }

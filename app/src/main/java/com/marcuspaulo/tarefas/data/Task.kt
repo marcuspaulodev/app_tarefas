@@ -6,7 +6,7 @@ import java.time.LocalDate
 
 @Entity(tableName = "tasks")
 data class Task(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    @PrimaryKey val id: String = Ids.newId(),
     val title: String,
     val description: String = "",
     val date: LocalDate,
@@ -14,8 +14,14 @@ data class Task(
     val deadline: LocalDate? = null,
     val priority: Priority = Priority.MEDIUM,
     val recurrence: String? = null,
+    /** Liga as ocorrências de uma tarefa recorrente. Fica nula até a primeira conclusão. */
+    val seriesId: String? = null,
     val completed: Boolean = false,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    /** Horário da última alteração, usado para decidir conflitos na sincronização. */
+    val updatedAt: Long = createdAt,
+    /** Exclusão lógica: a linha fica para a sincronização avisar os outros aparelhos. */
+    val deletedAt: Long? = null
 ) {
     val isOverdueRollover: Boolean
         get() = !completed && originalDate.isBefore(LocalDate.now())

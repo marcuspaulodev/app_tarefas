@@ -29,16 +29,16 @@ class ReminderScheduler(private val context: Context) {
 
         val request = OneTimeWorkRequestBuilder<DeadlineReminderWorker>()
             .setInitialDelay(delayMillis, TimeUnit.MILLISECONDS)
-            .setInputData(Data.Builder().putLong(DeadlineReminderWorker.KEY_TASK_ID, task.id).build())
+            .setInputData(Data.Builder().putString(DeadlineReminderWorker.KEY_TASK_ID, task.id).build())
             .build()
 
         WorkManager.getInstance(context)
             .enqueueUniqueWork(uniqueWorkName(task.id), ExistingWorkPolicy.REPLACE, request)
     }
 
-    fun cancelForTask(taskId: Long) {
+    fun cancelForTask(taskId: String) {
         WorkManager.getInstance(context).cancelUniqueWork(uniqueWorkName(taskId))
     }
 
-    private fun uniqueWorkName(taskId: Long) = "deadline_reminder_$taskId"
+    private fun uniqueWorkName(taskId: String) = "deadline_reminder_$taskId"
 }

@@ -11,6 +11,7 @@ import com.marcuspaulo.tarefas.MainActivity
 import com.marcuspaulo.tarefas.R
 import com.marcuspaulo.tarefas.TarefasApplication
 import com.marcuspaulo.tarefas.data.AppDatabase
+import com.marcuspaulo.tarefas.data.Ids
 
 class DeadlineReminderWorker(
     context: Context,
@@ -18,8 +19,9 @@ class DeadlineReminderWorker(
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        val taskId = inputData.getLong(KEY_TASK_ID, -1L)
-        if (taskId == -1L) return Result.failure()
+        // Lembretes agendados antes da versão 5 guardavam um número: não há mais tarefa com esse
+        // ID, e o TarefasApplication reagenda esses prazos com os IDs novos.
+        val taskId = inputData.getString(KEY_TASK_ID) ?: return Result.success()
 
         val task = AppDatabase.getInstance(applicationContext).taskDao().getById(taskId)
         if (task == null || task.completed || task.deadline == null) return Result.success()
@@ -32,7 +34,7 @@ class DeadlineReminderWorker(
         }
         val pendingIntent = PendingIntent.getActivity(
             applicationContext,
-            taskId.toInt(),
+            Ids.notificationId(taskId),
             openAppIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -45,7 +47,7 @@ class DeadlineReminderWorker(
             .setContentIntent(pendingIntent)
             .build()
 
-        notificationManager.notify(taskId.toInt(), notification)
+        notificationManager.notify(Ids.notificationId(taskId), notification)
         return Result.success()
     }
 
