@@ -6,10 +6,11 @@ import java.time.LocalDate
 
 class TaskRepository(private val dao: TaskDao, private val tagDao: TagDao) {
 
-    fun tasksForDate(date: LocalDate): Flow<List<TaskWithTags>> = dao.getTasksForDate(date)
+    fun tasksForDate(date: LocalDate, today: LocalDate): Flow<List<TaskWithTags>> =
+        dao.getTasksForDate(date, today)
 
-    fun pendingCountsBetween(start: LocalDate, end: LocalDate): Flow<List<DateCount>> =
-        dao.getPendingCountsBetween(start, end)
+    fun pendingCountsBetween(start: LocalDate, end: LocalDate, today: LocalDate): Flow<List<DateCount>> =
+        dao.getPendingCountsBetween(start, end, today)
 
     fun searchTasks(query: String): Flow<List<TaskWithTags>> = dao.searchTasks(query)
 
@@ -59,18 +60,25 @@ class TaskRepository(private val dao: TaskDao, private val tagDao: TagDao) {
      * Alterna a conclusão da tarefa. Se ela tem uma regra de recorrência e
      * está sendo marcada como concluída, gera a próxima ocorrência (mesmas
      * tags, sem o prazo da instância anterior) em vez de repetir a mesma
-     * linha — o avanço de dias de tarefas não concluídas continua sendo
-     * responsabilidade do rollover.
+     * linha. Concluir registra o dia em que a tarefa estava aparecendo, então
+     * uma atrasada concluída hoje fica em hoje, e não no dia em que atrasou.
      */
-    suspend fun toggleCompleted(task: Task, tagIds: Set<Long>): Task {
+    suspend fun toggleCompleted(
+        task: Task,
+        tagIds: Set<Long>,
+        today: LocalDate = LocalDate.now()
+    ): Task {
         val newCompleted = !task.completed
-        val updated = task.copy(completed = newCompleted)
+        val updated = task.copy(
+            completed = newCompleted,
+            date = if (newCompleted) task.effectiveDate(today) else task.date
+        )
         dao.update(updated)
 
         if (newCompleted) {
             val rule = RecurrenceRule.decode(task.recurrence)
             if (rule != null) {
-                val nextDate = rule.nextOccurrenceAfter(task.date)
+                val nextDate = rule.nextOccurrenceAfter(updated.date)
                 val nextTaskId = dao.insert(
                     Task(
                         title = task.title,
@@ -104,16 +112,5 @@ class TaskRepository(private val dao: TaskDao, private val tagDao: TagDao) {
 
     suspend fun deleteTag(tag: Tag) {
         tagDao.delete(tag)
-    }
-
-    /**
-     * Empurra para "hoje" toda tarefa não concluída cuja data já passou,
-     * preservando originalDate para exibir "atrasada desde".
-     */
-    suspend fun rolloverOverdueTasks(today: LocalDate = LocalDate.now()) {
-        val overdue = dao.getIncompleteTasksBefore(today)
-        if (overdue.isNotEmpty()) {
-            dao.updateTasks(overdue.map { it.copy(date = today) })
-        }
     }
 }

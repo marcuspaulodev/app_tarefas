@@ -18,8 +18,21 @@ data class Task(
     val createdAt: Long = System.currentTimeMillis()
 ) {
     val isOverdueRollover: Boolean
-        get() = !completed && date != originalDate
+        get() = !completed && originalDate.isBefore(LocalDate.now())
 
     val isPastDeadline: Boolean
         get() = !completed && deadline != null && deadline.isBefore(LocalDate.now())
+
+    /**
+     * Dia em que a tarefa aparece: uma pendente cuja data já passou fica em "hoje".
+     * É calculado na leitura, sem gravar no banco, para o simples passar dos dias
+     * não contar como edição quando houver sincronização entre aparelhos.
+     * Deve bater com o CASE das consultas em [TaskDao].
+     */
+    fun effectiveDate(today: LocalDate = LocalDate.now()): LocalDate =
+        if (!completed && date.isBefore(today)) today else date
+
+    /** Aplica a data escolhida na edição. Manter o dia exibido preserva o "atrasada desde". */
+    fun rescheduledTo(newDate: LocalDate, today: LocalDate = LocalDate.now()): Task =
+        if (newDate == effectiveDate(today)) this else copy(date = newDate, originalDate = newDate)
 }

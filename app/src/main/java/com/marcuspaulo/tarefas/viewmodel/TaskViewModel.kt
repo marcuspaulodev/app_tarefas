@@ -10,6 +10,7 @@ import com.marcuspaulo.tarefas.data.Task
 import com.marcuspaulo.tarefas.data.TaskRepository
 import com.marcuspaulo.tarefas.data.TaskWithTags
 import com.marcuspaulo.tarefas.notifications.ReminderScheduler
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -18,7 +19,9 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.Duration
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.YearMonth
 
 class TaskViewModel(
@@ -32,13 +35,15 @@ class TaskViewModel(
     private val _visibleMonth = MutableStateFlow(YearMonth.now())
     val visibleMonth: StateFlow<YearMonth> = _visibleMonth
 
-    val tasksForSelectedDate: StateFlow<List<TaskWithTags>> = _selectedDate
-        .flatMapLatest { date -> repository.tasksForDate(date) }
+    private val _today = MutableStateFlow(LocalDate.now())
+
+    val tasksForSelectedDate: StateFlow<List<TaskWithTags>> = combine(_selectedDate, _today, ::Pair)
+        .flatMapLatest { (date, today) -> repository.tasksForDate(date, today) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val pendingCountsForVisibleMonth: StateFlow<List<DateCount>> = _visibleMonth
-        .flatMapLatest { month ->
-            repository.pendingCountsBetween(month.atDay(1), month.atEndOfMonth())
+    val pendingCountsForVisibleMonth: StateFlow<List<DateCount>> = combine(_visibleMonth, _today, ::Pair)
+        .flatMapLatest { (month, today) ->
+            repository.pendingCountsBetween(month.atDay(1), month.atEndOfMonth(), today)
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -69,9 +74,19 @@ class TaskViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
+        // Com o app aberto na virada do dia, as atrasadas passam para o novo "hoje".
         viewModelScope.launch {
-            repository.rolloverOverdueTasks()
+            while (true) {
+                refreshToday()
+                val nextDay = LocalDate.now().plusDays(1).atStartOfDay()
+                delay(Duration.between(LocalDateTime.now(), nextDay).toMillis() + 1)
+            }
         }
+    }
+
+    /** O timer acima pode atrasar com o celular em repouso, então a tela também chama ao voltar. */
+    fun refreshToday() {
+        _today.value = LocalDate.now()
     }
 
     fun selectDate(date: LocalDate) {
@@ -140,11 +155,9 @@ class TaskViewModel(
         val original = _editingTask.value?.task ?: return
         if (title.isBlank()) return
         viewModelScope.launch {
-            val updated = original.copy(
+            val updated = original.rescheduledTo(date).copy(
                 title = title.trim(),
                 description = description.trim(),
-                date = date,
-                originalDate = if (date != original.date) date else original.originalDate,
                 deadline = deadline,
                 priority = priority,
                 recurrence = recurrence

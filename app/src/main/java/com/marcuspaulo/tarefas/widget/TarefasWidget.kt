@@ -134,7 +134,6 @@ private fun TaskRow(task: Task, today: LocalDate) {
                 maxLines = 1,
                 style = TextStyle(fontSize = 14.sp, color = GlanceTheme.colors.onSurface)
             )
-            // Cobre tanto as já empurradas pelo rollover quanto as que ainda não foram (app fechado).
             if (task.originalDate.isBefore(today)) {
                 Text(
                     text = "Atrasada desde ${task.originalDate.format(DATE_FMT)}",
