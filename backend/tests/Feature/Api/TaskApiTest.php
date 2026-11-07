@@ -204,4 +204,47 @@ class TaskApiTest extends TestCase
         $this->getJson(route('api.v1.tasks.index'))->assertUnprocessable()->assertJsonValidationErrors(['date', 'search']);
         $this->getJson(route('api.v1.tasks.index', ['date' => self::TODAY]))->assertUnprocessable()->assertJsonValidationErrors('today');
     }
+
+    public function test_upcoming_range_returns_only_owned_pending_tasks_in_the_interval(): void
+    {
+        Task::factory()->for($this->user)->on('2026-11-05')->create(['title' => 'Atrasada']);
+        Task::factory()->for($this->user)->on('2026-11-11')->create(['title' => 'Amanhã']);
+        Task::factory()->for($this->user)->on('2026-11-17')->create(['title' => 'Último dia']);
+        Task::factory()->for($this->user)->on('2026-11-18')->create(['title' => 'Fora']);
+        Task::factory()->for($this->user)->on('2026-11-12')->completed()->create();
+        Task::factory()->on('2026-11-11')->create();
+
+        $this->getJson(route('api.v1.tasks.index', [
+            'start' => '2026-11-11', 'end' => '2026-11-17', 'today' => self::TODAY, 'completed' => 0,
+        ]))->assertOk()->assertJsonPath('data.*.title', ['Amanhã', 'Último dia']);
+    }
+
+    public function test_date_range_uses_the_shown_day_for_overdue_tasks(): void
+    {
+        Task::factory()->for($this->user)->on('2026-11-05')->create(['title' => 'Atrasada']);
+        Task::factory()->for($this->user)->on('2026-11-05')->completed()->create(['title' => 'Já concluída']);
+
+        $this->getJson(route('api.v1.tasks.index', [
+            'start' => self::TODAY, 'end' => self::TODAY, 'today' => self::TODAY,
+        ]))->assertOk()->assertJsonPath('data.*.title', ['Atrasada']);
+    }
+
+    public function test_completed_view_returns_only_owned_completed_tasks_from_all_dates(): void
+    {
+        Task::factory()->for($this->user)->on('2026-11-01')->completed()->create(['title' => 'Antiga']);
+        Task::factory()->for($this->user)->on('2026-11-10')->completed()->create(['title' => 'Recente']);
+        Task::factory()->for($this->user)->on('2026-11-10')->create();
+        Task::factory()->on('2026-11-10')->completed()->create();
+
+        $this->getJson(route('api.v1.tasks.index', ['completed' => 1]))
+            ->assertOk()->assertJsonPath('data.*.title', ['Recente', 'Antiga']);
+    }
+
+    public function test_range_requires_an_end_today_and_a_valid_order(): void
+    {
+        $this->getJson(route('api.v1.tasks.index', ['start' => self::TODAY]))
+            ->assertUnprocessable()->assertJsonValidationErrors(['end', 'today']);
+        $this->getJson(route('api.v1.tasks.index', ['start' => self::TODAY, 'end' => '2026-11-09', 'today' => self::TODAY]))
+            ->assertUnprocessable()->assertJsonValidationErrors('end');
+    }
 }
