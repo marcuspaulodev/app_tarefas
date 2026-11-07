@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Gate;
 class TaskController extends Controller
 {
     /**
-     * Tarefas de um dia (date + today) ou busca por texto em todas as datas (search).
+     * Lista por dia, intervalo ou texto; completed filtra o estado em qualquer uma das visões.
      */
     public function index(ListTasksRequest $request): AnonymousResourceCollection
     {
@@ -32,10 +32,21 @@ class TaskController extends Controller
             $term = '%'.addcslashes($request->validated('search'), '%_\\').'%';
             $query->where(fn ($where) => $where->where('title', 'like', $term)->orWhere('description', 'like', $term))
                 ->orderByDesc('date');
-        } else {
+        } elseif ($request->filled('start')) {
+            $today = $request->validated('today');
+            $query->whereRaw('(CASE WHEN completed = 0 AND date < ? THEN ? ELSE date END) BETWEEN ? AND ?', [
+                $today, $today, $request->validated('start'), $request->validated('end'),
+            ])->orderBy('date')->orderBy('created_at');
+        } elseif ($request->filled('date')) {
             $query->visibleOn($request->validated('date'), $request->validated('today'))
                 ->orderBy('completed')
                 ->orderBy('created_at');
+        } else {
+            $query->orderByDesc('date')->orderBy('created_at');
+        }
+
+        if ($request->has('completed')) {
+            $query->where('completed', $request->boolean('completed'));
         }
 
         return TaskResource::collection($query->get());

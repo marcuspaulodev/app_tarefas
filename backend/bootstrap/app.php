@@ -13,7 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Não há página de login: sem token, a API responde 401 em JSON em vez de redirecionar.
+        $middleware->statefulApi();
         $middleware->redirectGuestsTo(fn (Request $request): ?string => null);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
