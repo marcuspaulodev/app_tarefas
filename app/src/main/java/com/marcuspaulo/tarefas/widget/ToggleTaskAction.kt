@@ -15,7 +15,8 @@ import com.marcuspaulo.tarefas.notifications.ReminderScheduler
 class ToggleTaskAction : ActionCallback {
 
     companion object {
-        val TaskIdKey = ActionParameters.Key<Long>("taskId")
+        // Nome novo: widgets desenhados antes da versão 5 guardavam um Long em "taskId".
+        val TaskIdKey = ActionParameters.Key<String>("taskUuid")
     }
 
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {

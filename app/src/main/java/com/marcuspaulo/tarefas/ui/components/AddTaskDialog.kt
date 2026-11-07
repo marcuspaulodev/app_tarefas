@@ -66,7 +66,7 @@ data class TaskFormResult(
     val deadline: LocalDate?,
     val priority: Priority,
     val recurrence: String?,
-    val tagIds: Set<Long>
+    val tagIds: Set<String>
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -75,7 +75,7 @@ fun AddTaskDialog(
     date: LocalDate,
     availableTags: List<Tag>,
     initial: Task? = null,
-    initialTagIds: Set<Long> = emptySet(),
+    initialTagIds: Set<String> = emptySet(),
     onDismiss: () -> Unit,
     onConfirm: (TaskFormResult) -> Unit
 ) {

@@ -43,16 +43,18 @@ class TaskScheduleTest {
     @After
     fun tearDown() = database.close()
 
-    private fun insert(title: String, date: LocalDate, completed: Boolean = false, recurrence: String? = null): Long =
+    private fun insert(title: String, date: LocalDate, completed: Boolean = false, recurrence: String? = null): String =
         runBlocking {
-            dao.insert(Task(title = title, date = date, completed = completed, recurrence = recurrence))
+            val task = Task(title = title, date = date, completed = completed, recurrence = recurrence)
+            dao.insert(task)
+            task.id
         }
 
     private fun titlesOn(date: LocalDate): List<String> = runBlocking {
         repository.tasksForDate(date, today).first().map { it.task.title }
     }
 
-    private fun stored(id: Long): Task = runBlocking { dao.getById(id)!! }
+    private fun stored(id: String): Task = runBlocking { dao.getById(id)!! }
 
     @Test
     fun `pendente atrasada aparece em hoje e nao no dia em que atrasou`() {
@@ -159,7 +161,9 @@ class TaskScheduleTest {
 
     @Test
     fun `tarefa ja empurrada pelo rollover antigo continua como estava`() = runBlocking {
-        val id = dao.insert(Task(title = "antiga", date = yesterday, originalDate = lastWeek))
+        val task = Task(title = "antiga", date = yesterday, originalDate = lastWeek)
+        dao.insert(task)
+        val id = task.id
 
         assertEquals(listOf("antiga"), titlesOn(today))
         assertEquals(lastWeek, stored(id).originalDate)

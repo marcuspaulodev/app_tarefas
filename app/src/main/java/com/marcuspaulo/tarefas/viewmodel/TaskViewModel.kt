@@ -53,8 +53,8 @@ class TaskViewModel(
     private val _editingTask = MutableStateFlow<TaskWithTags?>(null)
     val editingTask: StateFlow<TaskWithTags?> = _editingTask
 
-    private val _tagFilter = MutableStateFlow<Set<Long>>(emptySet())
-    val tagFilter: StateFlow<Set<Long>> = _tagFilter
+    private val _tagFilter = MutableStateFlow<Set<String>>(emptySet())
+    val tagFilter: StateFlow<Set<String>> = _tagFilter
 
     val visibleTasks: StateFlow<List<TaskWithTags>> = combine(
         tasksForSelectedDate,
@@ -114,20 +114,16 @@ class TaskViewModel(
         deadline: LocalDate?,
         priority: Priority,
         recurrence: String?,
-        tagIds: Set<Long>
+        tagIds: Set<String>
     ) {
         if (title.isBlank()) return
         viewModelScope.launch {
-            val taskId = repository.addTask(title.trim(), description.trim(), date, deadline, priority, recurrence, tagIds)
-            if (deadline != null) {
-                reminderScheduler.scheduleForTask(
-                    Task(id = taskId, title = title.trim(), date = date, deadline = deadline)
-                )
-            }
+            val task = repository.addTask(title.trim(), description.trim(), date, deadline, priority, recurrence, tagIds)
+            reminderScheduler.scheduleForTask(task)
         }
     }
 
-    fun toggleTagFilter(tagId: Long) {
+    fun toggleTagFilter(tagId: String) {
         _tagFilter.value = if (tagId in _tagFilter.value) {
             _tagFilter.value - tagId
         } else {
@@ -150,7 +146,7 @@ class TaskViewModel(
         deadline: LocalDate?,
         priority: Priority,
         recurrence: String?,
-        tagIds: Set<Long>
+        tagIds: Set<String>
     ) {
         val original = _editingTask.value?.task ?: return
         if (title.isBlank()) return

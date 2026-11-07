@@ -4,7 +4,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 
-class TaskRepository(private val dao: TaskDao, private val tagDao: TagDao) {
+/** Toda escrita passa por aqui e atualiza o `updatedAt` do que mudou. */
+class TaskRepository(
+    private val dao: TaskDao,
+    private val tagDao: TagDao,
+    private val clock: () -> Long = System::currentTimeMillis
+) {
 
     fun tasksForDate(date: LocalDate, today: LocalDate): Flow<List<TaskWithTags>> =
         dao.getTasksForDate(date, today)
@@ -18,7 +23,9 @@ class TaskRepository(private val dao: TaskDao, private val tagDao: TagDao) {
     fun pendingTasksUpTo(today: LocalDate): Flow<List<Task>> =
         dao.getPendingTasksUpTo(today).map { tasks -> tasks.sortedByDescending { it.priority.ordinal } }
 
-    suspend fun taskWithTagsById(id: Long): TaskWithTags? = dao.getTaskWithTagsById(id)
+    suspend fun pendingWithDeadlineFrom(today: LocalDate): List<Task> = dao.getPendingWithDeadlineFrom(today)
+
+    suspend fun taskWithTagsById(id: String): TaskWithTags? = dao.getTaskWithTagsById(id)
 
     val allTags: Flow<List<Tag>> = tagDao.getAllTags()
 
@@ -29,88 +36,100 @@ class TaskRepository(private val dao: TaskDao, private val tagDao: TagDao) {
         deadline: LocalDate?,
         priority: Priority,
         recurrence: String?,
-        tagIds: Set<Long>
-    ): Long {
-        val taskId = dao.insert(
-            Task(
-                title = title,
-                description = description,
-                date = date,
-                originalDate = date,
-                deadline = deadline,
-                priority = priority,
-                recurrence = recurrence
-            )
+        tagIds: Set<String>
+    ): Task {
+        val now = clock()
+        val task = Task(
+            id = Ids.newId(now),
+            title = title,
+            description = description,
+            date = date,
+            originalDate = date,
+            deadline = deadline,
+            priority = priority,
+            recurrence = recurrence,
+            createdAt = now
         )
-        if (tagIds.isNotEmpty()) {
-            dao.insertCrossRefs(tagIds.map { TaskTagCrossRef(taskId = taskId, tagId = it) })
-        }
-        return taskId
+        dao.insert(task)
+        setTags(task.id, tagIds)
+        return task
     }
 
-    suspend fun updateTask(task: Task, tagIds: Set<Long>) {
-        dao.update(task)
+    suspend fun updateTask(task: Task, tagIds: Set<String>) {
+        dao.update(task.copy(updatedAt = clock()))
         dao.clearTagsForTask(task.id)
-        if (tagIds.isNotEmpty()) {
-            dao.insertCrossRefs(tagIds.map { TaskTagCrossRef(taskId = task.id, tagId = it) })
-        }
+        setTags(task.id, tagIds)
     }
 
     /**
-     * Alterna a conclusão da tarefa. Se ela tem uma regra de recorrência e
-     * está sendo marcada como concluída, gera a próxima ocorrência (mesmas
-     * tags, sem o prazo da instância anterior) em vez de repetir a mesma
-     * linha. Concluir registra o dia em que a tarefa estava aparecendo, então
-     * uma atrasada concluída hoje fica em hoje, e não no dia em que atrasou.
+     * Alterna a conclusão da tarefa. Concluir registra o dia em que a tarefa estava
+     * aparecendo, então uma atrasada concluída hoje fica em hoje, e não no dia em que atrasou.
+     *
+     * Se ela é recorrente, concluir também cria a próxima ocorrência, com as mesmas tags e
+     * sem o prazo da anterior. O ID dessa ocorrência vem da série e da data, então concluir,
+     * desmarcar e concluir de novo não a duplica, e uma ocorrência excluída não volta.
      */
     suspend fun toggleCompleted(
         task: Task,
-        tagIds: Set<Long>,
+        tagIds: Set<String>,
         today: LocalDate = LocalDate.now()
     ): Task {
+        val now = clock()
         val newCompleted = !task.completed
+        val rule = if (newCompleted) RecurrenceRule.decode(task.recurrence) else null
         val updated = task.copy(
             completed = newCompleted,
-            date = if (newCompleted) task.effectiveDate(today) else task.date
+            date = if (newCompleted) task.effectiveDate(today) else task.date,
+            seriesId = if (rule != null) task.seriesId ?: task.id else task.seriesId,
+            updatedAt = now
         )
         dao.update(updated)
 
-        if (newCompleted) {
-            val rule = RecurrenceRule.decode(task.recurrence)
-            if (rule != null) {
-                val nextDate = rule.nextOccurrenceAfter(updated.date)
-                val nextTaskId = dao.insert(
+        if (rule != null) {
+            val seriesId = updated.seriesId!!
+            val nextDate = rule.nextOccurrenceAfter(updated.date)
+            val nextId = Ids.occurrenceId(seriesId, nextDate)
+            if (!dao.exists(nextId)) {
+                dao.insert(
                     Task(
+                        id = nextId,
                         title = task.title,
                         description = task.description,
                         date = nextDate,
                         originalDate = nextDate,
                         deadline = null,
                         priority = task.priority,
-                        recurrence = task.recurrence
+                        recurrence = task.recurrence,
+                        seriesId = seriesId,
+                        createdAt = now
                     )
                 )
-                if (tagIds.isNotEmpty()) {
-                    dao.insertCrossRefs(tagIds.map { TaskTagCrossRef(taskId = nextTaskId, tagId = it) })
-                }
+                setTags(nextId, tagIds)
             }
         }
         return updated
     }
 
     suspend fun deleteTask(task: Task) {
-        dao.delete(task)
+        dao.softDelete(task.id, clock())
     }
 
     suspend fun addTag(name: String, colorHex: String) {
-        tagDao.insert(Tag(name = name.trim(), colorHex = colorHex))
+        val now = clock()
+        tagDao.insert(Tag(id = Ids.newId(now), name = name.trim(), colorHex = colorHex, updatedAt = now))
     }
 
     suspend fun updateTag(tag: Tag) {
-        tagDao.update(tag)
+        tagDao.update(tag.copy(updatedAt = clock()))
     }
 
     suspend fun deleteTag(tag: Tag) {
-        tagDao.delete(tag)
+        tagDao.softDelete(tag.id, clock())
+    }
+
+    private suspend fun setTags(taskId: String, tagIds: Set<String>) {
+        if (tagIds.isNotEmpty()) {
+            dao.insertCrossRefs(tagIds.map { TaskTagCrossRef(taskId = taskId, tagId = it) })
+        }
     }
 }
