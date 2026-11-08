@@ -58,6 +58,7 @@ class SyncApiTest {
             val result = HttpSyncApi().login(server.url, "test@example.test", "test-password")
             assertEquals(4L, result.userId)
             assertEquals("test-token", result.token)
+            assertFalse(result.emailVerified)
             val request = server.request()
             assertEquals("POST /api/v1/login HTTP/1.1", request.line)
             assertEquals("test@example.test", request.body.getString("email"))
@@ -118,6 +119,52 @@ class SyncApiTest {
                     assertEquals(status, error.status)
                     assertEquals(message, error.message)
                 }
+                server.request()
+            }
+        }
+    }
+
+    @Test fun `login e consulta da conta recebem o status de email confirmado`() = runBlocking {
+        TestServer("""{"token":"test-token","user":{"id":4,"name":"Teste","email":"test@example.test","email_verified":true}}""").use { server ->
+            assertTrue(HttpSyncApi().login(server.url, "test@example.test", "test-password").emailVerified)
+            server.request()
+        }
+        for (verified in listOf(true, false)) {
+            TestServer("""{"data":{"id":4,"email_verified":$verified}}""").use { server ->
+                val session = Session(server.url, 4, "Teste", "test@example.test", "test-token")
+                assertEquals(verified, HttpSyncApi().validateSession(session))
+                server.request()
+            }
+        }
+    }
+
+    @Test fun `consulta de outra conta ou resposta incompleta nao altera o status`() = runBlocking {
+        for (body in listOf("{}", """{"data":{"id":99,"email_verified":true}}""")) {
+            TestServer(body).use { server ->
+                try {
+                    HttpSyncApi().validateSession(Session(server.url, 4, "Teste", "test@example.test", "test-token"))
+                    fail("Esperava resposta inválida")
+                } catch (_: java.io.IOException) { }
+                server.request()
+            }
+        }
+    }
+
+    @Test fun `reenvio autentica sem aceitar email arbitrario e trata falhas`() = runBlocking {
+        TestServer("""{"email_verified":false,"message":"Link enviado."}""").use { server ->
+            val result = HttpSyncApi().requestEmailVerification(Session(server.url, 4, "Teste", "test@example.test", "test-token"))
+            assertEquals(EmailVerificationResponse(false, "Link enviado."), result)
+            val request = server.request()
+            assertEquals("POST /api/v1/email/verification-notification HTTP/1.1", request.line)
+            assertEquals("Bearer test-token", request.headers["authorization"])
+            assertEquals(0, request.body.length())
+        }
+        for (status in listOf(401, 429, 503)) {
+            TestServer("{}", status).use { server ->
+                try {
+                    HttpSyncApi().requestEmailVerification(Session(server.url, 4, "Teste", "test@example.test", "test-token"))
+                    fail("Esperava HTTP $status")
+                } catch (error: ApiException) { assertEquals(status, error.status) }
                 server.request()
             }
         }

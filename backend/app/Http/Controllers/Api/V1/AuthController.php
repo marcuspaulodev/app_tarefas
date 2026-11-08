@@ -8,6 +8,7 @@ use App\Http\Requests\Api\V1\LoginRequest;
 use App\Http\Requests\Api\V1\RegisterRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -30,6 +31,8 @@ class AuthController extends Controller
 
             return $user;
         });
+
+        event(new Registered($user));
 
         return $this->tokenResponse($user, $request->validated('device_name'), Response::HTTP_CREATED);
     }

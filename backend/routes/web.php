@@ -1,10 +1,13 @@
 <?php
 
+use App\Http\Controllers\Api\V1\EmailVerificationController;
 use App\Http\Controllers\Api\V1\PasswordController;
 use App\Http\Controllers\Web\AuthController;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'app')->name('home');
+Route::get('email/verify/{id}/{hash}', [EmailVerificationController::class, 'verify'])
+    ->whereNumber('id')->name('verification.verify');
 Route::get('forgot-password', [PasswordController::class, 'show'])->name('password.request');
 Route::get('reset-password/{token}', [PasswordController::class, 'show'])->name('password.reset');
 

@@ -27,6 +27,8 @@
             'forgotPassword' => route('password.email', absolute: false),
             'resetPassword' => route('password.update', absolute: false),
             'passwordRecovery' => $passwordRecovery ?? null,
+            'emailVerification' => $emailVerification ?? null,
+            'sendVerification' => route('api.v1.verification.send', absolute: false),
             'login' => route('login', absolute: false),
             'register' => route('register', absolute: false),
             'logout' => route('logout', absolute: false),

@@ -30,6 +30,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.marcuspaulo.tarefas.sync.HttpSyncApi
+import com.marcuspaulo.tarefas.sync.ApiException
+import com.marcuspaulo.tarefas.sync.EmailVerificationResponse
 import com.marcuspaulo.tarefas.sync.SessionStore
 import com.marcuspaulo.tarefas.sync.SyncScheduler
 import com.marcuspaulo.tarefas.sync.SyncStatus
@@ -53,6 +55,31 @@ fun AccountScreen(store: SessionStore, onBack: (() -> Unit)?) {
     var forgotPassword by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<String?>(null) }
 
+    fun verifyEmail(resend: Boolean) {
+        val current = session?.takeUnless { it.expired } ?: return
+        scope.launch {
+            busy = true
+            error = null
+            notice = null
+            try {
+                val api = HttpSyncApi()
+                val result = if (resend) api.requestEmailVerification(current) else {
+                    val verified = api.validateSession(current)
+                    EmailVerificationResponse(verified,
+                        if (verified) "E-mail confirmado." else "A confirmação ainda está pendente. Abra o link enviado para seu e-mail.")
+                }
+                withContext(Dispatchers.IO) { store.updateVerification(current, result.verified) }
+                if (store.isCurrent(current)) notice = result.message
+            } catch (cancelled: CancellationException) { throw cancelled
+            } catch (failure: Exception) {
+                if (failure is ApiException && failure.status == 401) {
+                    withContext(Dispatchers.IO) { store.expire(current) }
+                }
+                if (store.isCurrent(current)) error = failure.message ?: "Não foi possível verificar o e-mail. Tente novamente."
+            } finally { busy = false }
+        }
+    }
+
     Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
         if (onBack != null) TextButton(onClick = onBack, enabled = !busy) { Text("Voltar às tarefas") }
@@ -60,6 +87,13 @@ fun AccountScreen(store: SessionStore, onBack: (() -> Unit)?) {
         if (session != null && !session!!.expired) {
             Text(session!!.name, style = MaterialTheme.typography.titleLarge)
             Text(session!!.email)
+            Text(if (session!!.emailVerified) "E-mail confirmado" else "E-mail pendente de confirmação",
+                style = MaterialTheme.typography.titleMedium)
+            if (!session!!.emailVerified) {
+                Text("Abra o link de confirmação no navegador. Você pode continuar usando suas tarefas enquanto isso.")
+                TextButton(onClick = { verifyEmail(true) }, enabled = !busy) { Text("Enviar link de confirmação") }
+                TextButton(onClick = { verifyEmail(false) }, enabled = !busy) { Text("Já confirmei") }
+            }
             Text("Suas tarefas continuam disponíveis sem internet. As alterações são enviadas quando houver conexão.")
             Text(session!!.server, style = MaterialTheme.typography.bodySmall)
             if (progress.account == session!!.key) {

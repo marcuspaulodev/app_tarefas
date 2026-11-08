@@ -61,8 +61,8 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         val database = AppDatabase.forSession(applicationContext, session) ?: return Result.success()
         SyncStatus.mutable.value = SyncProgress(session.key, running = true)
         try {
-            val complete = SyncEngine(database, HttpSyncApi()).synchronize(session) { store.session.value == session }
-            if (store.session.value != session) return Result.success()
+            val complete = SyncEngine(database, HttpSyncApi()).synchronize(session) { store.isCurrent(session) }
+            if (!store.isCurrent(session)) return Result.success()
             val scheduler = ReminderScheduler(applicationContext)
             database.taskDao().getIncludingDeleted().forEach { task ->
                 if (task.completed || task.deletedAt != null || task.deadline == null) scheduler.cancelForTask(task.id)
@@ -74,17 +74,17 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: ApiException) {
-            if (store.session.value == session) {
+            if (store.isCurrent(session)) {
                 if (error.status == 401) store.expire(session)
                 SyncStatus.mutable.value = SyncProgress(session.key, message = error.message)
             }
             return if (error.status == 429 || error.status >= 500) Result.retry() else Result.failure()
         } catch (error: IOException) {
-            if (store.session.value == session) SyncStatus.mutable.value = SyncProgress(session.key,
+            if (store.isCurrent(session)) SyncStatus.mutable.value = SyncProgress(session.key,
                 message = "Sem conexão com o servidor. Suas alterações estão salvas neste aparelho.")
             return Result.retry()
         } catch (error: Exception) {
-            if (store.session.value == session) SyncStatus.mutable.value = SyncProgress(session.key,
+            if (store.isCurrent(session)) SyncStatus.mutable.value = SyncProgress(session.key,
                 message = "Não foi possível sincronizar. Confira o servidor e tente novamente.")
             return Result.failure()
         } finally {
