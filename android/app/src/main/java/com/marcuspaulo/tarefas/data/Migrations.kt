@@ -11,7 +11,16 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  * o app fecha com erro ao abrir o banco em vez de apagar os dados.
  */
 val ALL_MIGRATIONS: Array<Migration>
-    get() = arrayOf(MIGRATION_4_5)
+    get() = arrayOf(MIGRATION_4_5, MIGRATION_5_6)
+
+/** Todos os registros existentes, inclusive excluídos, aguardam o primeiro envio. */
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE tasks ADD COLUMN needsSync INTEGER NOT NULL DEFAULT 1")
+        db.execSQL("ALTER TABLE tags ADD COLUMN needsSync INTEGER NOT NULL DEFAULT 1")
+        db.execSQL("CREATE TABLE IF NOT EXISTS sync_state (id INTEGER NOT NULL, cursor INTEGER NOT NULL, initialized INTEGER NOT NULL, lastSyncedAt INTEGER, PRIMARY KEY(id))")
+    }
+}
 
 /**
  * 4 → 5: IDs passam de número sequencial para UUID gerado no aparelho, e entram

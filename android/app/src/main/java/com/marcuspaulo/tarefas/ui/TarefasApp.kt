@@ -58,7 +58,10 @@ private val HEADER_FMT = DateTimeFormatter.ofPattern("EEEE, dd 'de' MMMM", Local
 fun TarefasApp(
     viewModel: TaskViewModel,
     onExportBackup: () -> Unit,
-    onImportBackup: () -> Unit
+    onImportBackup: () -> Unit,
+    onAccount: () -> Unit,
+    syncLabel: String,
+    connected: Boolean
 ) {
     val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
     val visibleMonth by viewModel.visibleMonth.collectAsStateWithLifecycle()
@@ -90,7 +93,12 @@ fun TarefasApp(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Minhas Tarefas") },
+                title = {
+                    Column {
+                        Text("Minhas Tarefas")
+                        Text(syncLabel, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                    }
+                },
                 actions = {
                     IconButton(onClick = {
                         showSearch = !showSearch
@@ -108,6 +116,10 @@ fun TarefasApp(
                         Icon(Icons.Default.MoreVert, contentDescription = "Mais opções")
                     }
                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        DropdownMenuItem(text = { Text("Conta e sincronização") }, onClick = {
+                            showMenu = false
+                            onAccount()
+                        })
                         DropdownMenuItem(
                             text = { Text("Fazer backup") },
                             onClick = {
@@ -116,7 +128,7 @@ fun TarefasApp(
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text("Restaurar backup") },
+                            text = { Text(if (connected) "Importar backup" else "Restaurar backup") },
                             onClick = {
                                 showMenu = false
                                 showRestoreConfirm = true
@@ -255,10 +267,11 @@ fun TarefasApp(
     if (showRestoreConfirm) {
         AlertDialog(
             onDismissRequest = { showRestoreConfirm = false },
-            title = { Text("Restaurar backup") },
+            title = { Text(if (connected) "Importar backup" else "Restaurar backup") },
             text = {
                 Text(
-                    "Isso vai substituir todas as tarefas e tags atuais pelas do arquivo de " +
+                    if (connected) "As tarefas do arquivo serão adicionadas como novas cópias à sua conta. Suas tarefas atuais serão mantidas. Continuar?"
+                    else "Isso vai substituir todas as tarefas e tags atuais pelas do arquivo de " +
                         "backup escolhido. Essa ação não pode ser desfeita. Continuar?"
                 )
             },

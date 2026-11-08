@@ -49,6 +49,8 @@ fun TagEditDialog(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text("Nome") },
+                    isError = name.length > 50,
+                    supportingText = if (name.length > 50) ({ Text("Use até 50 caracteres") }) else null,
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -81,7 +83,7 @@ fun TagEditDialog(
         confirmButton = {
             TextButton(
                 onClick = { onConfirm(name, colorHex) },
-                enabled = name.isNotBlank()
+                enabled = name.isNotBlank() && name.length <= 50
             ) {
                 Text(if (initial == null) "Criar" else "Salvar")
             }

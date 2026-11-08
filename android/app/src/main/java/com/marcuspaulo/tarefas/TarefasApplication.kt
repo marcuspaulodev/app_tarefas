@@ -15,6 +15,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.flow.collectLatest
+import com.marcuspaulo.tarefas.sync.SessionStore
+import com.marcuspaulo.tarefas.sync.SyncScheduler
+import androidx.work.WorkManager
 import java.time.LocalDate
 
 class TarefasApplication : Application() {
@@ -46,37 +51,43 @@ class TarefasApplication : Application() {
             .createNotificationChannels(listOf(channel, dailyCheckChannel))
         DailyCheckScheduler.scheduleAll(this)
 
-        // Qualquer escrita na tabela de tarefas (criar, editar, concluir, excluir,
-        // restaurar backup) redesenha o widget — sem precisar chamar nada no ViewModel.
-        AppDatabase.getInstance(this).invalidationTracker.addObserver(
-            object : InvalidationTracker.Observer("tasks") {
-                override fun onInvalidated(tables: Set<String>) {
-                    appScope.launch { TarefasWidget().updateAll(this@TarefasApplication) }
+        MidnightWidgetWorker.schedule(this)
+        val store = SessionStore.get(this)
+        var previousKey = store.workspaceKey
+        appScope.launch {
+            store.session.collectLatest { session ->
+                val key = store.workspaceKey
+                if (previousKey != key) {
+                    SyncScheduler.cancel(this@TarefasApplication)
+                    WorkManager.getInstance(this@TarefasApplication).cancelAllWorkByTag("deadline_reminder")
+                    getSystemService(NotificationManager::class.java).cancelAll()
+                }
+                previousKey = key
+                TarefasWidget().updateAll(this@TarefasApplication)
+                val database = AppDatabase.activeOrNull(this@TarefasApplication) ?: return@collectLatest
+                val observer = object : InvalidationTracker.Observer("tasks", "tags") {
+                    override fun onInvalidated(tables: Set<String>) {
+                        appScope.launch {
+                            if (store.workspaceKey != key) return@launch
+                            TarefasWidget().updateAll(this@TarefasApplication)
+                            if (database.taskDao().pendingSync().isNotEmpty() || database.tagDao().pendingSync().isNotEmpty())
+                                SyncScheduler.request(this@TarefasApplication)
+                        }
+                    }
+                }
+                database.invalidationTracker.addObserver(observer)
+                try {
+                    val scheduler = ReminderScheduler(this@TarefasApplication)
+                    TaskRepository(database).pendingWithDeadlineFrom(LocalDate.now()).forEach(scheduler::scheduleForTask)
+                    if (session != null && !session.expired) {
+                        SyncScheduler.schedulePeriodic(this@TarefasApplication)
+                        SyncScheduler.request(this@TarefasApplication)
+                    }
+                    awaitCancellation()
+                } finally {
+                    database.invalidationTracker.removeObserver(observer)
                 }
             }
-        )
-        MidnightWidgetWorker.schedule(this)
-        rescheduleDeadlineRemindersOnce()
-    }
-
-    /**
-     * Os lembretes agendados antes do banco versão 5 apontam para IDs numéricos que não
-     * existem mais. Na primeira abertura depois da atualização, agenda de novo os prazos
-     * pendentes com os IDs novos.
-     */
-    private fun rescheduleDeadlineRemindersOnce() {
-        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        if (prefs.getBoolean(KEY_REMINDERS_USE_UUID, false)) return
-        appScope.launch {
-            val database = AppDatabase.getInstance(this@TarefasApplication)
-            val scheduler = ReminderScheduler(this@TarefasApplication)
-            TaskRepository(database.taskDao(), database.tagDao())
-                .pendingWithDeadlineFrom(LocalDate.now())
-                .forEach(scheduler::scheduleForTask)
-            prefs.edit().putBoolean(KEY_REMINDERS_USE_UUID, true).apply()
         }
     }
 }
-
-private const val PREFS_NAME = "app_state"
-private const val KEY_REMINDERS_USE_UUID = "reminders_use_uuid"

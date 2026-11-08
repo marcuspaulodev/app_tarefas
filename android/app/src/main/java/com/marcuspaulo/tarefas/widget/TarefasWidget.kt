@@ -5,6 +5,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.key
+import kotlinx.coroutines.flow.flowOf
+import com.marcuspaulo.tarefas.sync.SessionStore
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
@@ -49,23 +52,26 @@ private val DATE_FMT = DateTimeFormatter.ofPattern("dd/MM")
 class TarefasWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val database = AppDatabase.getInstance(context)
-        val repository = TaskRepository(database.taskDao(), database.tagDao())
-
+        val store = SessionStore.get(context)
         provideContent {
-            val today = LocalDate.now()
-            val tasks by remember(today) { repository.pendingTasksUpTo(today) }
-                .collectAsState(initial = null)
-
-            GlanceTheme {
-                WidgetContent(tasks = tasks, today = today)
+            val session by store.session.collectAsState()
+            val workspace = session?.key ?: store.workspaceKey
+            key(workspace) {
+                val today = LocalDate.now()
+                val tasks by remember(workspace, today) {
+                    AppDatabase.activeOrNull(context)?.let { TaskRepository(it).pendingTasksUpTo(today) }
+                        ?: flowOf(emptyList())
+                }.collectAsState(initial = null)
+                GlanceTheme {
+                    WidgetContent(tasks = tasks, today = today, workspace = workspace)
+                }
             }
         }
     }
 }
 
 @Composable
-private fun WidgetContent(tasks: List<Task>?, today: LocalDate) {
+private fun WidgetContent(tasks: List<Task>?, today: LocalDate, workspace: String?) {
     val openApp = actionStartActivity<MainActivity>()
 
     Column(
@@ -94,13 +100,13 @@ private fun WidgetContent(tasks: List<Task>?, today: LocalDate) {
         when {
             tasks == null -> Unit
             tasks.isEmpty() -> Text(
-                text = "Nada pendente hoje 🎉",
+                text = if (workspace == null) "Entre no app para ver suas tarefas" else "Nada pendente hoje 🎉",
                 style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant),
                 modifier = GlanceModifier.fillMaxWidth().clickable(openApp)
             )
             else -> LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
                 items(tasks, itemId = { Ids.stableLong(it.id) }) { task ->
-                    TaskRow(task = task, today = today)
+                    TaskRow(task = task, today = today, workspace = workspace.orEmpty())
                 }
             }
         }
@@ -108,7 +114,7 @@ private fun WidgetContent(tasks: List<Task>?, today: LocalDate) {
 }
 
 @Composable
-private fun TaskRow(task: Task, today: LocalDate) {
+private fun TaskRow(task: Task, today: LocalDate, workspace: String) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = GlanceModifier.fillMaxWidth().padding(vertical = 2.dp)
@@ -116,7 +122,7 @@ private fun TaskRow(task: Task, today: LocalDate) {
         CheckBox(
             checked = false,
             onCheckedChange = actionRunCallback<ToggleTaskAction>(
-                actionParametersOf(ToggleTaskAction.TaskIdKey to task.id)
+                actionParametersOf(ToggleTaskAction.TaskIdKey to task.id, ToggleTaskAction.WorkspaceKey to workspace)
             )
         )
         Box(

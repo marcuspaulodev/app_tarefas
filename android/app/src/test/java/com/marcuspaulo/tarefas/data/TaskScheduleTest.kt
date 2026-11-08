@@ -37,7 +37,7 @@ class TaskScheduleTest {
             AppDatabase::class.java
         ).allowMainThreadQueries().build()
         dao = database.taskDao()
-        repository = TaskRepository(dao, database.tagDao())
+        repository = TaskRepository(database)
     }
 
     @After

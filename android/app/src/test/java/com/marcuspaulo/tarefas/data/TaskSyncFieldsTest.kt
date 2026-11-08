@@ -39,7 +39,7 @@ class TaskSyncFieldsTest {
         ).allowMainThreadQueries().build()
         dao = database.taskDao()
         tagDao = database.tagDao()
-        repository = TaskRepository(dao, tagDao) { now }
+        repository = TaskRepository(database) { now }
     }
 
     @After
@@ -162,4 +162,30 @@ class TaskSyncFieldsTest {
         assertTrue(done.completed)
         assertNotNull(stored(task.id))
     }
+    @Test
+    fun `edicao aberta antes de concluir no servidor preserva conclusao e datas atuais`() = runBlocking {
+        val task = add("editar")
+        val old = task.copy(date = today.minusDays(5), originalDate = today.minusDays(5))
+        dao.update(old)
+        val completed = old.copy(completed = true, date = today, updatedAt = 5000, needsSync = false)
+        dao.update(completed)
+        repository.updateTask(old.copy(title = "Título novo"), emptySet(), selectedDate = today, today = today)
+        val edited = stored(task.id)!!
+        assertTrue(edited.completed)
+        assertEquals(today, edited.date)
+        assertEquals(old.originalDate, edited.originalDate)
+        assertEquals("Título novo", edited.title)
+        assertTrue(edited.updatedAt > completed.updatedAt)
+        assertTrue(edited.needsSync)
+    }
+
+    @Test
+    fun `tarefa excluida recebida do servidor nao e restaurada por formulario antigo`() = runBlocking {
+        val task = add("excluída")
+        dao.update(task.copy(deletedAt = 5000, updatedAt = 5000, needsSync = false))
+        assertNull(repository.updateTask(task.copy(title = "antiga"), emptySet()))
+        assertNull(stored(task.id))
+        assertTrue(dao.pendingSync().isEmpty())
+    }
+
 }

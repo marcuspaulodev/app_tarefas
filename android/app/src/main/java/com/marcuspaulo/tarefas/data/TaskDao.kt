@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
+import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 
@@ -76,7 +77,7 @@ interface TaskDao {
     @Update
     suspend fun update(task: Task)
 
-    @Query("UPDATE tasks SET deletedAt = :now, updatedAt = :now WHERE id = :id")
+    @Query("UPDATE tasks SET deletedAt = :now, updatedAt = :now, needsSync = 1 WHERE id = :id")
     suspend fun softDelete(id: String, now: Long)
 
     @Insert
@@ -102,4 +103,20 @@ interface TaskDao {
 
     @Insert
     suspend fun insertAllTasks(tasks: List<Task>)
+
+    @Query("SELECT * FROM tasks WHERE id = :id")
+    suspend fun getIncludingDeleted(id: String): Task?
+
+    @Transaction
+    @Query("SELECT * FROM tasks WHERE needsSync = 1 ORDER BY updatedAt, id")
+    suspend fun pendingSync(): List<TaskWithTags>
+
+    @Query("SELECT COUNT(*) FROM tasks WHERE needsSync = 1")
+    fun pendingSyncCount(): Flow<Int>
+
+    @Query("SELECT * FROM tasks")
+    suspend fun getIncludingDeleted(): List<Task>
+
+    @Upsert
+    suspend fun upsert(task: Task)
 }

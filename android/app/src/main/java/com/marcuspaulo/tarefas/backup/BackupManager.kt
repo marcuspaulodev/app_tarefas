@@ -21,10 +21,11 @@ private const val BACKUP_VERSION = 2
 
 class BackupManager(
     private val database: AppDatabase,
+    private val mergeIntoAccount: Boolean = false,
     private val clock: () -> Long = System::currentTimeMillis
 ) {
 
-    suspend fun exportToJson(): String {
+    suspend fun exportToJson(): String = database.withTransaction {
         val taskDao = database.taskDao()
         val tagDao = database.tagDao()
 
@@ -67,8 +68,9 @@ class BackupManager(
             )
         }
 
-        return JSONObject()
+        JSONObject()
             .put("version", BACKUP_VERSION)
+            .put("portable", mergeIntoAccount)
             .put("tags", tagsJson)
             .put("tasks", tasksJson)
             .put("taskTags", crossRefsJson)
@@ -130,14 +132,34 @@ class BackupManager(
             }
         }
 
+        val portable = mergeIntoAccount || root.optBoolean("portable")
+        val importedTagIds = tags.associate { it.id to if (portable) Ids.newId(now) else it.id }
+        val importedTaskIds = tasks.associate { it.id to if (portable) Ids.newId(now) else it.id }.toMutableMap()
+        val seriesIds = mutableMapOf<String, String>()
+        val usedIds = mutableSetOf<String>()
+        val importedTasks = tasks.map { task ->
+            if (!portable) task else {
+                val series = task.seriesId?.let { seriesIds.getOrPut(it) { importedTaskIds[it] ?: Ids.newId(now) } }
+                var id = if (series != null && task.id != task.seriesId) Ids.occurrenceId(series, task.originalDate)
+                    else importedTaskIds.getValue(task.id)
+                if (!usedIds.add(id)) { id = Ids.newId(now); usedIds.add(id) }
+                importedTaskIds[task.id] = id
+                task.copy(id = id, seriesId = series, updatedAt = maxOf(now, task.createdAt), needsSync = true)
+            }
+        }
+        val importedTags = tags.map { if (portable) it.copy(id = importedTagIds.getValue(it.id), updatedAt = now, needsSync = true) else it }
+        val importedRefs = crossRefs.map { TaskTagCrossRef(importedTaskIds.getValue(it.taskId), importedTagIds.getValue(it.tagId)) }
+
         database.withTransaction {
             val taskDao = database.taskDao()
             val tagDao = database.tagDao()
-            taskDao.deleteAllTasks()
-            tagDao.deleteAllTags()
-            if (tags.isNotEmpty()) tagDao.insertAllTags(tags)
-            if (tasks.isNotEmpty()) taskDao.insertAllTasks(tasks)
-            if (crossRefs.isNotEmpty()) taskDao.insertCrossRefs(crossRefs)
+            if (!mergeIntoAccount) {
+                taskDao.deleteAllTasks()
+                tagDao.deleteAllTags()
+            }
+            if (importedTags.isNotEmpty()) tagDao.insertAllTags(importedTags)
+            if (importedTasks.isNotEmpty()) taskDao.insertAllTasks(importedTasks)
+            if (importedRefs.isNotEmpty()) taskDao.insertCrossRefs(importedRefs)
         }
     }
 }
