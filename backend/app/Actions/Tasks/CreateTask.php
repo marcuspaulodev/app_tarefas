@@ -3,6 +3,7 @@
 namespace App\Actions\Tasks;
 
 use App\Enums\Priority;
+use App\Http\Requests\Api\V1\OwnedTag;
 use App\Models\Task;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +17,9 @@ class CreateTask
     public function handle(User $user, array $attributes, array $tagIds = []): Task
     {
         return DB::transaction(function () use ($user, $attributes, $tagIds): Task {
+            $version = $user->claimNextSyncVersion();
+            OwnedTag::validateIds($user, $tagIds);
+
             $task = $user->tasks()->make([
                 ...array_filter($attributes, fn (mixed $value): bool => $value !== null),
                 'description' => $attributes['description'] ?? '',
@@ -23,7 +27,7 @@ class CreateTask
                 'priority' => $attributes['priority'] ?? Priority::Medium,
                 'completed' => false,
             ]);
-            $task->sync_version = $user->claimNextSyncVersion();
+            $task->sync_version = $version;
             $task->save();
             $task->tags()->sync($tagIds);
 

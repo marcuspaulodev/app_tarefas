@@ -2,6 +2,7 @@
 
 namespace App\Actions\Tasks;
 
+use App\Http\Requests\Api\V1\OwnedTag;
 use App\Models\Task;
 use Illuminate\Support\Facades\DB;
 
@@ -17,6 +18,13 @@ class UpdateTask
     public function handle(Task $task, array $attributes, ?array $tagIds, ?string $today): Task
     {
         return DB::transaction(function () use ($task, $attributes, $tagIds, $today): Task {
+            $user = $task->user;
+            $version = $user->claimNextSyncVersion();
+            $task = $user->tasks()->findOrFail($task->id);
+            if ($tagIds !== null) {
+                OwnedTag::validateIds($user, $tagIds);
+            }
+
             if (array_key_exists('date', $attributes)) {
                 $task->rescheduleTo($attributes['date'], $today);
                 unset($attributes['date']);
@@ -26,7 +34,7 @@ class UpdateTask
             }
 
             $task->fill($attributes);
-            $task->sync_version = $task->user->claimNextSyncVersion();
+            $task->sync_version = $version;
             $task->save();
 
             if ($tagIds !== null) {
