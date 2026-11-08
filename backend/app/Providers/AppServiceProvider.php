@@ -4,7 +4,9 @@ namespace App\Providers;
 
 use App\Models\User;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -22,6 +24,19 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        VerifyEmail::createUrlUsing(static fn (User $user): string => rtrim(config('app.url'), '/').URL::temporarySignedRoute(
+            'verification.verify', now()->addMinutes(config('auth.verification.expire', 60)),
+            ['id' => $user->id, 'hash' => sha1($user->getEmailForVerification())], absolute: false,
+        ));
+        VerifyEmail::toMailUsing(static fn (User $user, string $url): MailMessage => (new MailMessage)
+            ->subject('Confirme seu e-mail — Tarefas')
+            ->greeting('Olá, '.$user->name.'!')
+            ->line('Confirme que este e-mail pertence à sua conta no Tarefas.')
+            ->action('Confirmar meu e-mail', $url)
+            ->line('Este link é válido por '.config('auth.verification.expire', 60).' minutos.')
+            ->line('Se você não criou esta conta, ignore este e-mail.')
+            ->salutation('Equipe Tarefas'));
+
         $resetUrl = static fn (User $user, string $token): string => rtrim(config('app.url'), '/').route('password.reset', [
             'token' => $token, 'email' => $user->getEmailForPasswordReset(),
         ], absolute: false);

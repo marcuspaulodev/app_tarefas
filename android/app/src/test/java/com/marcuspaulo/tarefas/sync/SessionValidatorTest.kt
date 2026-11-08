@@ -98,7 +98,7 @@ class SessionValidatorTest {
 
     @Test fun `somente uma sessao ativa e verificada`() = runBlocking {
         var calls = 0
-        val validator = SessionValidator(store) { assertEquals(a, it); calls++ }
+        val validator = SessionValidator(store) { assertEquals(a, it); calls++; false }
         validator.check()
         store.connect(a)
         validator.check()
@@ -115,6 +115,60 @@ class SessionValidatorTest {
             fail("Esperava cancelamento")
         } catch (_: CancellationException) { }
         assertEquals(a, store.session.value)
+    }
+
+    @Test fun `confirmacao persiste sem trocar o banco token ou invalidar sincronizacao`() = runBlocking {
+        store.connect(a)
+        val name = store.databaseName(a)!!
+        val db = database(name)
+        val task = TaskRepository(db).addTask("Pendente", "", LocalDate.of(2026, 11, 10), null,
+            Priority.MEDIUM, null, emptySet())
+        val state = SyncState(cursor = 9, initialized = true, lastSyncedAt = 1000)
+        db.syncStateDao().save(state)
+        SessionValidator(store) { true }.check()
+        val updated = a.copy(emailVerified = true)
+        assertEquals(updated, store.session.value)
+        assertTrue(store.isCurrent(a))
+        assertEquals(a.key, store.workspaceKey)
+        assertEquals(name, store.databaseName(updated))
+        assertEquals(updated, SessionStore(context, cipher).session.value)
+        assertEquals(task, db.taskDao().pendingSync().single().task)
+        assertEquals(state, db.syncStateDao().get())
+        // Uma resposta anterior à confirmação não pode desfazer o status novo.
+        store.updateVerification(a, false)
+        assertEquals(updated, store.session.value)
+        // Uma revogação da mesma credencial continua válida depois da confirmação.
+        store.expire(a)
+        assertTrue(store.session.value!!.expired)
+        assertNull(store.workspaceKey)
+    }
+
+    @Test fun `confirmacao atrasada nao altera outra conta ou uma sessao renovada`() = runBlocking {
+        for (replacement in listOf(b, a.copy(token = "novo-token"), a.copy(token = "", expired = true))) {
+            store.connect(a)
+            SessionValidator(store) {
+                store.connect(replacement)
+                true
+            }.check()
+            assertEquals(replacement, store.session.value)
+        }
+        store.connect(a)
+        SessionValidator(store) { store.logout(); true }.check()
+        assertNull(store.session.value)
+    }
+
+    @Test fun `sessao da versao anterior carrega sem perder autenticacao e recebe status novo`() = runBlocking {
+        store.connect(a)
+        val prefs = context.getSharedPreferences("session", Context.MODE_PRIVATE)
+        val json = org.json.JSONObject(cipher.decrypt(prefs.getString("session", null)!!))
+        json.remove("email_verified")
+        prefs.edit().putString("session", cipher.encrypt(json.toString())).commit()
+        val restarted = SessionStore(context, cipher)
+        assertEquals(a, restarted.session.value)
+        SessionValidator(restarted) { true }.check()
+        assertTrue(restarted.session.value!!.emailVerified)
+        assertEquals(a.token, restarted.session.value!!.token)
+        assertEquals(store.databaseName(a), restarted.databaseName(restarted.session.value))
     }
 
     private fun database(name: String): AppDatabase =

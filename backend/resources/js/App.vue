@@ -1,11 +1,13 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useWorkspace } from './composables/useWorkspace';
-import { endpoints } from './lib/api';
+import { useEmailVerification } from './composables/useEmailVerification';
+import { endpoints, request } from './lib/api';
 import { addDays, dateGroups, dayGroups, dayTitle, filterByTag, formatDate, isCarried } from './lib/tasks';
 import AppDialog from './components/AppDialog.vue';
 import AppIcon from './components/AppIcon.vue';
 import AuthScreen from './components/AuthScreen.vue';
+import EmailVerificationScreen from './components/EmailVerificationScreen.vue';
 import MonthCalendar from './components/MonthCalendar.vue';
 import TagManager from './components/TagManager.vue';
 import TaskForm from './components/TaskForm.vue';
@@ -24,6 +26,15 @@ const {
     user, booting, notice, today, selectedDate, month, view, searchInput, searchTerm, selectedTag,
     tasks, tags, counts, loading, loadError, pendingTasks, toast, todayCount, upcomingCount,
 } = workspace;
+const { verificationBusy, verificationNotice, verificationError, sendVerification, refreshVerification } = useEmailVerification({
+    user,
+    send: () => request(endpoints.sendVerification, { method: 'POST' }),
+    fetchUser: async () => (await request(endpoints.user)).data,
+    onAuthError: workspace.handleError,
+});
+function refreshEmailOnFocus() {
+    if (!endpoints.emailVerification && !recovery.value) refreshVerification(true);
+}
 const menuOpen = ref(false);
 const taskFormOpen = ref(false);
 const editingTask = ref(null);
@@ -98,7 +109,7 @@ async function logout() {
 }
 
 function shortcut(event) {
-    if (recovery.value || !user.value || event.metaKey || event.ctrlKey || event.altKey || document.querySelector('dialog[open]')) return;
+    if (endpoints.emailVerification || recovery.value || !user.value || event.metaKey || event.ctrlKey || event.altKey || document.querySelector('dialog[open]')) return;
     if (event.target.closest('input, textarea, select, [contenteditable="true"]')) return;
     if (event.key.toLowerCase() === 'n') {
         event.preventDefault();
@@ -120,10 +131,13 @@ watch(() => user.value?.id, () => {
 
 onMounted(() => window.addEventListener('keydown', shortcut));
 onUnmounted(() => window.removeEventListener('keydown', shortcut));
+onMounted(() => window.addEventListener('focus', refreshEmailOnFocus));
+onUnmounted(() => window.removeEventListener('focus', refreshEmailOnFocus));
 </script>
 
 <template>
-    <div v-if="booting" class="boot-screen" role="status"><span class="brand"><span class="brand-marker"></span>Tarefas</span><p>Preparando seu espaço…</p></div>
+    <EmailVerificationScreen v-if="endpoints.emailVerification" :verified="endpoints.emailVerification.verified" :home="endpoints.home" />
+    <div v-else-if="booting" class="boot-screen" role="status"><span class="brand"><span class="brand-marker"></span>Tarefas</span><p>Preparando seu espaço…</p></div>
     <AuthScreen v-else-if="!user || recovery" :authenticate="authenticate" :notice="notice" :recovery="recovery" />
     <div v-else class="workspace">
         <a href="#main-content" class="skip-link">Pular para as tarefas</a>
@@ -145,7 +159,7 @@ onUnmounted(() => window.removeEventListener('keydown', shortcut));
                     <ThemeSwitcher />
                     <div class="account">
                         <span class="avatar" aria-hidden="true">{{ user.name.slice(0, 1).toUpperCase() }}</span>
-                        <div><strong>{{ user.name }}</strong><span>{{ user.email }}</span></div>
+                        <div><strong>{{ user.name }}</strong><span>{{ user.email }}</span><span>{{ user.email_verified ? 'E-mail confirmado' : 'E-mail pendente de confirmação' }}</span></div>
                         <button type="button" class="icon-button" :aria-label="loggingOut ? 'Saindo' : 'Sair da conta'" :disabled="loggingOut || pendingTasks.size > 0" @click="logout"><AppIcon name="logout" :size="18" /></button>
                     </div>
                 </div>
@@ -153,6 +167,16 @@ onUnmounted(() => window.removeEventListener('keydown', shortcut));
         </aside>
 
         <main id="main-content" class="sheet" tabindex="-1">
+            <section v-if="!user.email_verified" class="verification-notice" aria-label="Confirmação de e-mail" :aria-busy="verificationBusy">
+                <strong>Confirme seu e-mail</strong>
+                <p>Confirme que {{ user.email }} é seu endereço. Use o link recebido ou solicite um envio abaixo. Suas tarefas continuam disponíveis.</p>
+                <div class="verification-actions">
+                    <button type="button" class="button secondary small" :disabled="verificationBusy" @click="sendVerification">Enviar link de confirmação</button>
+                    <button type="button" class="button secondary small" :disabled="verificationBusy" @click="refreshVerification()">Já confirmei</button>
+                </div>
+                <p v-if="verificationNotice" role="status">{{ verificationNotice }}</p>
+                <p v-if="verificationError" class="form-error" role="alert">{{ verificationError }}</p>
+            </section>
             <header class="workspace-header">
                 <div><h1>{{ title }}</h1><p class="page-subtitle" aria-live="polite">{{ loading ? 'Atualizando suas tarefas…' : subtitle }}</p></div>
                 <form class="search-field" role="search" @submit.prevent="searchField?.blur()">

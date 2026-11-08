@@ -186,6 +186,38 @@ notificações falsas e não enviam e-mails.
 Validação: `php vendor/bin/phpunit tests/Feature/Api/PasswordRecoveryTest.php`,
 `npm test` e os testes Android de `SyncApiTest`.
 
+### Confirmação de e-mail
+
+Novos cadastros recebem um link de confirmação por e-mail. Ele usa `APP_URL`,
+é assinado e vale por 60 minutos. Pode ser aberto no navegador sem login,
+inclusive em outro aparelho; confirma apenas o endereço da conta indicada no
+link e não troca a conta conectada no navegador. Links alterados, expirados ou
+referentes a um endereço antigo são recusados. Reabrir um link válido já usado
+mantém a confirmação existente.
+
+O site e **Conta e sincronização** no Android mostram se o e-mail está confirmado
+e permitem solicitar outro link, com intervalo mínimo de um minuto por conta,
+compartilhado entre os aparelhos. Contas existentes continuam disponíveis e
+podem confirmar o endereço pelo mesmo fluxo. Nesta etapa, a confirmação pendente
+não bloqueia tarefas nem sincronização. Confirmar não altera tokens, bancos,
+cursores ou alterações offline. Uma falha no envio também não desfaz o cadastro;
+o usuário pode entrar e solicitar o link novamente.
+
+Teste local, usando a mesma configuração de e-mail da recuperação de senha:
+
+1. Cadastre uma conta de teste no site ou entre em uma conta ainda não confirmada.
+2. Use **Enviar link de confirmação** no site ou no Android.
+3. Com `MAIL_MAILER=log`, abra o link da mensagem **Confirme seu e-mail — Tarefas**
+   em `backend/storage/logs/laravel.log`. Nenhum e-mail real é enviado nesse modo.
+4. Confira a página **E-mail confirmado** e volte ao site ou ao app. O site
+   consulta o status ao recuperar o foco; o Android usa a verificação de sessão
+   ao retomar e a cada 30 segundos em primeiro plano. **Já confirmei** também
+   atualiza o status manualmente. Sem rede, o último status fica guardado.
+5. Confira que tarefas e alterações pendentes continuam disponíveis.
+
+Validação: `php vendor/bin/phpunit tests/Feature/Api/EmailVerificationTest.php`,
+`npm test` e os testes Android de `SyncApiTest` e `SessionValidatorTest`.
+
 ### Rotas da API (`/api/v1`)
 
 | Método | Rota | O que faz |
@@ -195,6 +227,7 @@ Validação: `php vendor/bin/phpunit tests/Feature/Api/PasswordRecoveryTest.php`
 | POST | `reset-password` | Recebe `email`, `token`, `password` e `password_confirmation`; redefine a senha |
 | POST | `logout` | Encerra a sessão deste aparelho |
 | GET | `user` | Usuário logado |
+| POST | `email/verification-notification` | Solicita confirmação para o e-mail da conta autenticada |
 | POST | `sync` | Envia alterações offline e recebe tarefas/tags alteradas desde um cursor |
 | GET | `tasks?date=&today=` | Tarefas que aparecem no dia (`today` é o dia no aparelho) |
 | GET | `tasks?search=` | Busca por título e descrição em todas as datas |

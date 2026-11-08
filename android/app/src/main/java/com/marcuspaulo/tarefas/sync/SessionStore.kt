@@ -17,7 +17,7 @@ import javax.crypto.spec.GCMParameterSpec
 
 data class Session(
     val server: String, val userId: Long, val name: String, val email: String,
-    val token: String, val expired: Boolean = false
+    val token: String, val expired: Boolean = false, val emailVerified: Boolean = false
 ) {
     val key: String get() = MessageDigest.getInstance("SHA-256")
         .digest("$server/users/$userId".toByteArray()).joinToString("") { "%02x".format(it) }
@@ -77,10 +77,25 @@ class SessionStore internal constructor(context: Context, private val cipher: Se
 
     @Synchronized
     fun expire(expected: Session) {
-        if (session.value != expected) return
-        val expired = expected.copy(token = "", expired = true)
+        if (!isCurrent(expected)) return
+        val expired = session.value!!.copy(token = "", expired = true)
         check(auth.edit().putString("session", encode(expired)).commit())
         mutableSession.value = expired
+    }
+
+    /** Mudanças no status do e-mail não invalidam uma sincronização em andamento. */
+    fun isCurrent(expected: Session): Boolean = session.value?.let {
+        it.key == expected.key && it.token == expected.token && it.expired == expected.expired
+    } == true
+
+    @Synchronized
+    fun updateVerification(expected: Session, verified: Boolean) {
+        if (session.value != expected || expected.expired) return
+        val current = session.value!!
+        if (current.emailVerified == verified) return
+        val updated = current.copy(emailVerified = verified)
+        check(auth.edit().putString("session", encode(updated)).commit())
+        mutableSession.value = updated
     }
 
     @Synchronized
@@ -99,13 +114,14 @@ class SessionStore internal constructor(context: Context, private val cipher: Se
 
     private fun encode(value: Session): String = cipher.encrypt(JSONObject()
         .put("server", value.server).put("id", value.userId).put("name", value.name)
-        .put("email", value.email).put("token", value.token).put("expired", value.expired).toString())
+        .put("email", value.email).put("token", value.token).put("expired", value.expired)
+        .put("email_verified", value.emailVerified).toString())
 
     private fun load(): Session? = runCatching {
         val stored = auth.getString("session", null) ?: return null
         val json = JSONObject(cipher.decrypt(stored))
         val loaded = Session(json.getString("server"), json.getLong("id"), json.getString("name"),
-            json.getString("email"), json.getString("token"), json.optBoolean("expired"))
+            json.getString("email"), json.getString("token"), json.optBoolean("expired"), json.optBoolean("email_verified"))
         if (loaded.expired && loaded.token.isNotEmpty()) {
             loaded.copy(token = "").also {
                 check(auth.edit().putString("session", encode(it)).commit())

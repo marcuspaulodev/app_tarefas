@@ -238,6 +238,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .auth-links { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; margin-top: 20px; }
 .auth-links button { min-height: 40px; padding: 4px 0; border: 0; background: transparent; color: var(--ink-soft); font-size: 14px; }
 .auth-links button:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; }
+.verification-notice { display: grid; gap: 10px; padding: 18px; margin-bottom: 24px; border: 1px solid var(--rule); border-radius: 12px; background: var(--notice-surface); font-size: 14px; overflow-wrap: anywhere; }
+.verification-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.verification-result { width: min(100%, 540px); margin: 64px auto; }
+.verification-result h1 { font: 800 29px/1.2 'Bricolage Grotesque', system-ui, sans-serif; }
 
 @media (min-width: 1600px) { .workspace { grid-template-columns: 310px minmax(0, 1fr); } .sidebar { padding-left: 35px; padding-right: 35px; } }
 @media (max-width: 1100px) {

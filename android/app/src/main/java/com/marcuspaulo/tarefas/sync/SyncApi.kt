@@ -17,6 +17,7 @@ import java.time.LocalDate
 data class SyncTask(val task: Task, val tagIds: List<String>)
 data class SyncBatch(val cursor: Long, val tasks: List<SyncTask> = emptyList(), val tags: List<Tag> = emptyList())
 data class SyncResponse(val cursor: Long, val tasks: List<SyncTask>, val tags: List<Tag>)
+data class EmailVerificationResponse(val verified: Boolean, val message: String)
 
 interface SyncApi {
     suspend fun exchange(session: Session, batch: SyncBatch): SyncResponse
@@ -32,12 +33,23 @@ class HttpSyncApi : SyncApi {
             .put("email", email.trim()).put("password", password)
             .put("device_name", "Android ${Build.MANUFACTURER} ${Build.MODEL}".take(255)))
         val user = json.getJSONObject("user")
-        return Session(normalized, user.getLong("id"), user.getString("name"), user.getString("email"), json.getString("token"))
+        return Session(normalized, user.getLong("id"), user.getString("name"), user.getString("email"), json.getString("token"),
+            emailVerified = user.optBoolean("email_verified"))
     }
 
     suspend fun logout(session: Session) { request(session.server, "logout", session.token, JSONObject()) }
 
-    suspend fun validateSession(session: Session) { request(session.server, "user", session.token) }
+    suspend fun validateSession(session: Session): Boolean {
+        val user = request(session.server, "user", session.token).optJSONObject("data")
+            ?: throw IOException("Resposta inválida do servidor.")
+        if (user.optLong("id", -1) != session.userId) throw IOException("A resposta não corresponde à conta conectada.")
+        return user.optBoolean("email_verified", session.emailVerified)
+    }
+
+    suspend fun requestEmailVerification(session: Session): EmailVerificationResponse {
+        val response = request(session.server, "email/verification-notification", session.token, JSONObject())
+        return EmailVerificationResponse(response.getBoolean("email_verified"), response.getString("message"))
+    }
 
     suspend fun requestPasswordReset(server: String, email: String): String =
         request(normalizeServer(server), "forgot-password", null, JSONObject().put("email", email.trim())).getString("message")

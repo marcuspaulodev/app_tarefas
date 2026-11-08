@@ -8,6 +8,7 @@ use App\Http\Requests\Web\LoginRequest;
 use App\Http\Requests\Web\RegisterRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -39,6 +40,7 @@ class AuthController extends Controller
 
         Auth::guard('web')->login($user);
         $this->regenerateSession($request);
+        event(new Registered($user));
 
         return (new UserResource($user))->response()->setStatusCode(Response::HTTP_CREATED);
     }
