@@ -48,6 +48,13 @@ O Android pode adiar o trabalho em segundo plano para economizar bateria.
 **Sincronizar agora** permite solicitar uma atualização manual. Falhas de conexão
 mantêm a fila local; uma sessão expirada pede novo login sem apagar os dados.
 
+A sessão também é verificada ao abrir/retomar o app e a cada 30 segundos em
+primeiro plano, inclusive na tela de conta. Quando o servidor responde que o
+acesso foi revogado, o token é descartado e o app volta à tela de login; tarefas,
+widget e lembretes ficam indisponíveis até entrar novamente. Os bancos e as
+alterações pendentes são preservados. Sem internet, a troca de senha só pode ser
+detectada no próximo contato com o servidor.
+
 Cada conta tem seu próprio banco e cursor. Ao sair, tarefas e alterações pendentes
 ficam guardadas para o próximo login daquela conta. Widgets e notificações usam
 apenas a conta ativa. A migração 5→6 preserva os registros existentes; não é
@@ -58,6 +65,12 @@ entra no backup automático. O vínculo entre contas e bancos é preservado junt
 dos dados. Em conta conectada, **Importar backup** adiciona novas cópias, sem
 substituir ou apagar tarefas do servidor. Backups exportados de contas também
 recebem IDs novos ao serem importados em outro espaço local.
+
+Na tela de acesso, **Esqueci minha senha** solicita um link por e-mail ao
+servidor informado. Abra o link no navegador, escolha uma nova senha e volte ao
+app para entrar. Solicitar o link não conecta uma conta nem altera as tarefas
+locais. Após redefinir a senha, os acessos anteriores precisam de novo login;
+as alterações offline continuam guardadas para a mesma conta.
 
 Validação no aparelho:
 
@@ -133,11 +146,53 @@ php artisan test
 npm test
 ```
 
+### Recuperação de senha
+
+O web e o Android permitem solicitar a recuperação pelo e-mail da conta.
+O link abre o formulário web, vale por 60 minutos e só pode ser usado uma vez.
+Um novo envio após o intervalo de 60 segundos invalida o link anterior.
+Solicitações repetidas nesse intervalo e e-mails não cadastrados recebem a
+mesma mensagem de confirmação. Os endpoints também limitam tentativas por IP.
+
+Ao salvar a nova senha, o servidor revoga os tokens dos aparelhos e as sessões
+web da conta. Tarefas, tags, vínculos e cursores de sincronização são preservados.
+O usuário entra novamente com o mesmo e-mail e a nova senha.
+
+Para testar localmente sem enviar e-mails reais, configure em `backend/.env`:
+
+```dotenv
+APP_URL=http://192.168.1.10:8000
+MAIL_MAILER=log
+```
+
+Substitua o IP pelo endereço do computador acessível pelo celular. `APP_URL`
+é a base dos links enviados, mesmo quando a solicitação chega por outro endereço.
+Para testar apenas no computador, também pode usar `http://127.0.0.1:8000`.
+Após alterar a configuração, execute `php artisan config:clear`.
+
+1. No web ou em **Conta e sincronização** do Android, escolha **Esqueci minha senha**.
+2. Informe o e-mail de uma conta existente e solicite o link.
+3. Com `MAIL_MAILER=log`, abra o link da mensagem registrada em
+   `backend/storage/logs/laravel.log`; nenhum e-mail é enviado por esse driver.
+4. Defina e confirme a nova senha. Entre novamente no web e no app e confira
+   as tarefas, inclusive alterações que estavam pendentes no celular.
+5. Confira que a senha anterior e a reutilização do link são recusadas.
+
+Para entrega real de e-mails, configure `MAIL_MAILER=smtp`, os campos `MAIL_*`
+do `.env.example` e o remetente do serviço de e-mail. Na publicação, `APP_URL`
+deve apontar para o domínio HTTPS do produto. Os testes automatizados usam
+notificações falsas e não enviam e-mails.
+
+Validação: `php vendor/bin/phpunit tests/Feature/Api/PasswordRecoveryTest.php`,
+`npm test` e os testes Android de `SyncApiTest`.
+
 ### Rotas da API (`/api/v1`)
 
 | Método | Rota | O que faz |
 |---|---|---|
 | POST | `register`, `login` | Cria a conta ou entra; devolve um token por aparelho |
+| POST | `forgot-password` | Recebe `email` e solicita o link, sem precisar de login |
+| POST | `reset-password` | Recebe `email`, `token`, `password` e `password_confirmation`; redefine a senha |
 | POST | `logout` | Encerra a sessão deste aparelho |
 | GET | `user` | Usuário logado |
 | POST | `sync` | Envia alterações offline e recebe tarefas/tags alteradas desde um cursor |

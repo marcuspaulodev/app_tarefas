@@ -23,6 +23,10 @@
     <noscript>Ative o JavaScript do navegador para usar o Tarefas.</noscript>
     @php
         $endpoints = [
+            'home' => route('home', absolute: false),
+            'forgotPassword' => route('password.email', absolute: false),
+            'resetPassword' => route('password.update', absolute: false),
+            'passwordRecovery' => $passwordRecovery ?? null,
             'login' => route('login', absolute: false),
             'register' => route('register', absolute: false),
             'logout' => route('logout', absolute: false),

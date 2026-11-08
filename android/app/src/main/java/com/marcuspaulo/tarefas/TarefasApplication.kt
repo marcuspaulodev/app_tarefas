@@ -57,7 +57,7 @@ class TarefasApplication : Application() {
         appScope.launch {
             store.session.collectLatest { session ->
                 val key = store.workspaceKey
-                if (previousKey != key) {
+                if (previousKey != key || key == null) {
                     SyncScheduler.cancel(this@TarefasApplication)
                     WorkManager.getInstance(this@TarefasApplication).cancelAllWorkByTag("deadline_reminder")
                     getSystemService(NotificationManager::class.java).cancelAll()

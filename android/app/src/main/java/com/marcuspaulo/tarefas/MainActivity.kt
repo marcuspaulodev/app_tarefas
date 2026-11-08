@@ -25,6 +25,8 @@ import com.marcuspaulo.tarefas.data.AppDatabase
 import com.marcuspaulo.tarefas.data.TaskRepository
 import com.marcuspaulo.tarefas.notifications.ReminderScheduler
 import com.marcuspaulo.tarefas.sync.SessionStore
+import com.marcuspaulo.tarefas.sync.SessionValidator
+import com.marcuspaulo.tarefas.sync.HttpSyncApi
 import com.marcuspaulo.tarefas.sync.SyncScheduler
 import com.marcuspaulo.tarefas.sync.SyncStatus
 import com.marcuspaulo.tarefas.ui.AccountScreen
@@ -33,9 +35,11 @@ import com.marcuspaulo.tarefas.ui.theme.TarefasTheme
 import com.marcuspaulo.tarefas.viewmodel.TaskViewModel
 import com.marcuspaulo.tarefas.viewmodel.WorkspaceViewModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 
 class MainActivity : ComponentActivity() {
@@ -79,7 +83,20 @@ class MainActivity : ComponentActivity() {
             val workspace = sessions.workspaceKey
             val owner: WorkspaceViewModel = viewModel()
             owner.select(workspace)
-            var accountScreen by remember(session?.key) { mutableStateOf(false) }
+            var accountScreen by remember(session?.key, session?.expired) { mutableStateOf(false) }
+            val validator = remember(sessions) { SessionValidator(sessions, HttpSyncApi()::validateSession) }
+            if (session != null && !session!!.expired) {
+                LifecycleResumeEffect(session) {
+                    val refresh = lifecycleScope.launch {
+                        while (true) {
+                            withContext(Dispatchers.IO) { validator.check() }
+                            SyncScheduler.request(applicationContext)
+                            delay(30000)
+                        }
+                    }
+                    onPauseOrDispose { refresh.cancel() }
+                }
+            }
             TarefasTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     if (workspace == null || accountScreen) {
@@ -95,7 +112,6 @@ class MainActivity : ComponentActivity() {
                         val progress by SyncStatus.state.collectAsStateWithLifecycle()
                         val label = when {
                             session == null -> "Somente neste aparelho"
-                            session!!.expired -> "Entre novamente para sincronizar"
                             progress.account == workspace && progress.running -> "Sincronizando…"
                             pending > 0 -> "$pending alterações aguardando envio"
                             progress.account == workspace && progress.message != null -> "Sincronização indisponível"
@@ -104,11 +120,7 @@ class MainActivity : ComponentActivity() {
                         }
                         LifecycleResumeEffect(viewModel) {
                             viewModel.refreshToday()
-                            SyncScheduler.request(applicationContext)
-                            val refresh = lifecycleScope.launch {
-                                while (true) { delay(30000); SyncScheduler.request(applicationContext) }
-                            }
-                            onPauseOrDispose { refresh.cancel() }
+                            onPauseOrDispose { }
                         }
                         TarefasApp(viewModel = viewModel, syncLabel = label, connected = session != null,
                             onAccount = { accountScreen = true },

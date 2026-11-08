@@ -37,6 +37,11 @@ class HttpSyncApi : SyncApi {
 
     suspend fun logout(session: Session) { request(session.server, "logout", session.token, JSONObject()) }
 
+    suspend fun validateSession(session: Session) { request(session.server, "user", session.token) }
+
+    suspend fun requestPasswordReset(server: String, email: String): String =
+        request(normalizeServer(server), "forgot-password", null, JSONObject().put("email", email.trim())).getString("message")
+
     override suspend fun exchange(session: Session, batch: SyncBatch): SyncResponse {
         val body = JSONObject().put("cursor", batch.cursor)
             .put("tags", JSONArray(batch.tags.map { tagJson(it) }))
@@ -49,18 +54,20 @@ class HttpSyncApi : SyncApi {
             (0 until tags.length()).map { parseTag(tags.getJSONObject(it)) })
     }
 
-    private suspend fun request(server: String, path: String, token: String?, body: JSONObject): JSONObject = withContext(Dispatchers.IO) {
+    private suspend fun request(server: String, path: String, token: String?, body: JSONObject? = null): JSONObject = withContext(Dispatchers.IO) {
         val connection = URI("$server/api/v1/$path").toURL().openConnection() as HttpURLConnection
         try {
-            connection.requestMethod = "POST"
+            connection.requestMethod = if (body == null) "GET" else "POST"
             connection.instanceFollowRedirects = false
             connection.connectTimeout = 15000
             connection.readTimeout = 30000
             connection.setRequestProperty("Accept", "application/json")
-            connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
             if (token != null) connection.setRequestProperty("Authorization", "Bearer $token")
-            connection.doOutput = true
-            connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+            if (body != null) {
+                connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                connection.doOutput = true
+                connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+            }
             val status = connection.responseCode
             val text = (if (status in 200..299) connection.inputStream else connection.errorStream)
                 ?.bufferedReader()?.use { it.readText() }.orEmpty()

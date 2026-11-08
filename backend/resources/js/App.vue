@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useWorkspace } from './composables/useWorkspace';
+import { endpoints } from './lib/api';
 import { addDays, dateGroups, dayGroups, dayTitle, filterByTag, formatDate, isCarried } from './lib/tasks';
 import AppDialog from './components/AppDialog.vue';
 import AppIcon from './components/AppIcon.vue';
@@ -12,6 +13,13 @@ import TaskItem from './components/TaskItem.vue';
 import ThemeSwitcher from './components/ThemeSwitcher.vue';
 
 const workspace = useWorkspace();
+const recovery = ref(endpoints.passwordRecovery);
+
+async function authenticate(mode, credentials) {
+    await workspace.authenticate(mode, credentials);
+    recovery.value = null;
+    window.history.replaceState(null, '', endpoints.home);
+}
 const {
     user, booting, notice, today, selectedDate, month, view, searchInput, searchTerm, selectedTag,
     tasks, tags, counts, loading, loadError, pendingTasks, toast, todayCount, upcomingCount,
@@ -90,7 +98,7 @@ async function logout() {
 }
 
 function shortcut(event) {
-    if (!user.value || event.metaKey || event.ctrlKey || event.altKey || document.querySelector('dialog[open]')) return;
+    if (recovery.value || !user.value || event.metaKey || event.ctrlKey || event.altKey || document.querySelector('dialog[open]')) return;
     if (event.target.closest('input, textarea, select, [contenteditable="true"]')) return;
     if (event.key.toLowerCase() === 'n') {
         event.preventDefault();
@@ -116,7 +124,7 @@ onUnmounted(() => window.removeEventListener('keydown', shortcut));
 
 <template>
     <div v-if="booting" class="boot-screen" role="status"><span class="brand"><span class="brand-marker"></span>Tarefas</span><p>Preparando seu espaço…</p></div>
-    <AuthScreen v-else-if="!user" :authenticate="workspace.authenticate" :notice="notice" />
+    <AuthScreen v-else-if="!user || recovery" :authenticate="authenticate" :notice="notice" :recovery="recovery" />
     <div v-else class="workspace">
         <a href="#main-content" class="skip-link">Pular para as tarefas</a>
         <aside class="sidebar">

@@ -50,11 +50,13 @@ fun AccountScreen(store: SessionStore, onBack: (() -> Unit)?) {
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var confirmLogout by remember { mutableStateOf(false) }
+    var forgotPassword by remember { mutableStateOf(false) }
+    var notice by remember { mutableStateOf<String?>(null) }
 
     Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
         if (onBack != null) TextButton(onClick = onBack, enabled = !busy) { Text("Voltar às tarefas") }
-        Text("Conta e sincronização", style = MaterialTheme.typography.headlineMedium)
+        Text(if (forgotPassword) "Recuperar senha" else "Conta e sincronização", style = MaterialTheme.typography.headlineMedium)
         if (session != null && !session!!.expired) {
             Text(session!!.name, style = MaterialTheme.typography.titleLarge)
             Text(session!!.email)
@@ -66,37 +68,51 @@ fun AccountScreen(store: SessionStore, onBack: (() -> Unit)?) {
             Button(onClick = { SyncScheduler.request(context) }, enabled = !progress.running) { Text("Sincronizar agora") }
             TextButton(onClick = { confirmLogout = true }, enabled = !busy) { Text("Sair da conta") }
         } else {
-            Text(if (session?.expired == true) "Sua sessão expirou. Entre novamente para enviar as alterações salvas."
+            Text(if (forgotPassword) "Informe o e-mail da sua conta. Você receberá um link para criar uma nova senha no navegador e depois poderá entrar aqui."
+                else if (session?.expired == true) "Sua sessão foi encerrada. Entre novamente para acessar suas tarefas. As alterações salvas neste aparelho foram preservadas."
                 else "Entre com a mesma conta usada no site.")
-            if (store.legacyOwner == null) Text("As tarefas e tags deste aparelho serão vinculadas a esta conta no primeiro acesso.")
+            if (!forgotPassword && store.legacyOwner == null) Text("As tarefas e tags deste aparelho serão vinculadas a esta conta no primeiro acesso.")
             OutlinedTextField(value = server, onValueChange = { server = it }, label = { Text("Endereço do servidor") },
                 placeholder = { Text("https://tarefas.exemplo.com") }, singleLine = true, enabled = !busy,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth())
             OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("E-mail") }, singleLine = true,
                 enabled = !busy, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("Senha") }, singleLine = true,
+            if (!forgotPassword) OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("Senha") }, singleLine = true,
                 enabled = !busy, visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), modifier = Modifier.fillMaxWidth())
-            Button(enabled = !busy && email.isNotBlank() && password.isNotEmpty() && server.isNotBlank(), onClick = {
+            Button(enabled = !busy && email.isNotBlank() && (forgotPassword || password.isNotEmpty()) && server.isNotBlank(), onClick = {
                 scope.launch {
                     busy = true
                     error = null
+                    notice = null
                     try {
-                        val connected = HttpSyncApi().login(server, email, password)
-                        withContext(Dispatchers.IO) { store.connect(connected) }
-                        password = ""
-                        onBack?.invoke()
+                        if (forgotPassword) {
+                            notice = HttpSyncApi().requestPasswordReset(server, email)
+                        } else {
+                            val connected = HttpSyncApi().login(server, email, password)
+                            withContext(Dispatchers.IO) { store.connect(connected) }
+                            password = ""
+                            onBack?.invoke()
+                        }
                     } catch (cancelled: CancellationException) { throw cancelled
                     } catch (failure: Exception) {
                         error = if (failure is java.net.ConnectException || failure is java.net.SocketTimeoutException)
                             "Não foi possível conectar. Confira o endereço do servidor e sua conexão."
-                        else failure.message ?: "Não foi possível entrar. Tente novamente."
+                        else failure.message ?: if (forgotPassword) "Não foi possível solicitar o link. Tente novamente."
+                            else "Não foi possível entrar. Tente novamente."
                     } finally { busy = false }
                 }
-            }, modifier = Modifier.fillMaxWidth()) { Text("Entrar") }
+            }, modifier = Modifier.fillMaxWidth()) { Text(if (forgotPassword) "Enviar link" else "Entrar") }
+            TextButton(enabled = !busy, onClick = {
+                forgotPassword = !forgotPassword
+                password = ""
+                error = null
+                notice = null
+            }) { Text(if (forgotPassword) "Voltar para entrar" else "Esqueci minha senha") }
             if (session != null) TextButton(onClick = { confirmLogout = true }, enabled = !busy) { Text("Sair desta conta") }
         }
         if (busy) CircularProgressIndicator()
+        notice?.let { Text(it) }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     }
     if (confirmLogout) AlertDialog(

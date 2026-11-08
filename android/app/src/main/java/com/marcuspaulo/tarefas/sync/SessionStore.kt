@@ -59,7 +59,10 @@ class SessionStore internal constructor(context: Context, private val cipher: Se
     private val mutableSession = MutableStateFlow(load())
     val session = mutableSession.asStateFlow()
     val legacyOwner: String? get() = workspaces.getString("legacy_owner", null)
-    val workspaceKey: String? get() = session.value?.key ?: if (legacyOwner == null) "local" else null
+    val workspaceKey: String? get() = when (val current = session.value) {
+        null -> if (legacyOwner == null) "local" else null
+        else -> if (current.expired) null else current.key
+    }
     val lastServer: String get() = workspaces.getString("server", null)
         ?: if (BuildConfig.DEBUG) "http://10.0.2.2:8000" else ""
 
@@ -75,7 +78,7 @@ class SessionStore internal constructor(context: Context, private val cipher: Se
     @Synchronized
     fun expire(expected: Session) {
         if (session.value != expected) return
-        val expired = expected.copy(expired = true)
+        val expired = expected.copy(token = "", expired = true)
         check(auth.edit().putString("session", encode(expired)).commit())
         mutableSession.value = expired
     }
@@ -87,6 +90,7 @@ class SessionStore internal constructor(context: Context, private val cipher: Se
     }
 
     fun databaseName(value: Session?): String? = when {
+        value?.expired == true -> null
         value != null && value.key == legacyOwner -> "tarefas.db"
         value != null -> "account_${value.key}.db"
         legacyOwner == null -> "tarefas.db"
@@ -100,8 +104,13 @@ class SessionStore internal constructor(context: Context, private val cipher: Se
     private fun load(): Session? = runCatching {
         val stored = auth.getString("session", null) ?: return null
         val json = JSONObject(cipher.decrypt(stored))
-        Session(json.getString("server"), json.getLong("id"), json.getString("name"),
+        val loaded = Session(json.getString("server"), json.getLong("id"), json.getString("name"),
             json.getString("email"), json.getString("token"), json.optBoolean("expired"))
+        if (loaded.expired && loaded.token.isNotEmpty()) {
+            loaded.copy(token = "").also {
+                check(auth.edit().putString("session", encode(it)).commit())
+            }
+        } else loaded
     }.getOrNull()
 
     companion object {
