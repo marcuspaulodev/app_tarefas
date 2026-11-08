@@ -20,8 +20,9 @@ aparecem como pendentes no dia seguinte (com o aviso "Atrasada desde ...").
    não funciona com o 25).
 3. Conecte um celular com depuração USB, ou use um emulador, e clique em **Run ▶**.
 
-Requer minSdk 26 (Android 8.0+). Testes: `./gradlew :app:testDebugUnitTest`
-dentro de `android/` (ou pelo Android Studio).
+Requer minSdk 26 (Android 8.0+). Testes: `gradle :app:testDebugUnitTest`
+dentro de `android/`, usando Gradle 8.9 e JDK 21 (ou pelo Android Studio).
+O repositório ainda não inclui o executável `gradlew`.
 
 ### Conectar o Android ao servidor
 
@@ -69,6 +70,40 @@ Validação no aparelho:
 5. Conclua uma recorrente e confira que há só uma próxima ocorrência.
 6. Saia da conta, entre em outra e confira também o widget. Volte à primeira e
    verifique que seus dados e alterações pendentes continuam disponíveis.
+
+### Testes de integração Android ↔ Laravel
+
+A suíte conecta o `SyncEngine`, o Room e o cliente HTTP do Android à API Laravel
+real, usando MySQL em `tarefas_test`. O teste inicia um servidor em uma porta
+livre de `127.0.0.1`, cria contas temporárias pela API e remove essas contas e
+seus dados ao terminar. Não utiliza as contas do celular nem o servidor da
+porta 8000. Não execute outra suíte que altere `tarefas_test` ao mesmo tempo.
+
+Depois de configurar o backend, o banco de teste e o SDK Android, execute:
+
+```sh
+cd backend
+JAVA_HOME=/caminho/do/jdk-21 \
+SYNC_TEST_GRADLE=/caminho/do/gradle-8.9/bin/gradle \
+RUN_ANDROID_SYNC_TESTS=1 \
+php vendor/bin/phpunit tests/Feature/Api/AndroidSyncIntegrationTest.php
+```
+
+`SYNC_TEST_GRADLE` é opcional se `gradle` 8.9 estiver no `PATH`.
+Se o ambiente não identificar corretamente o PHP CLI, informe também
+`SYNC_TEST_PHP=/caminho/do/php`. A suíte exige `APP_ENV=testing` e o banco
+`tarefas_test` configurados em `backend/phpunit.xml`; não apaga nem recria o banco.
+O relatório detalhado fica em
+`android/app/build/reports/tests/testDebugUnitTest/index.html`.
+
+Os cenários cobrem importação inicial com tags padrão, alterações nas duas
+direções, conflitos entre dois clientes, empate de horário, reenvio após perda
+da resposta, fila offline preservada ao reabrir o banco, recorrências sem
+duplicação, exclusões, lotes grandes, edição durante o envio, troca de conta e
+token revogado. Os testes Android rodam no Robolectric: widgets, notificações,
+interface e agendamento em segundo plano ainda exigem a validação no aparelho
+descrita acima. Nas suítes normais, essa integração é pulada; o comando acima
+exige que os cenários sejam executados, sem testes pulados.
 
 ## Backend
 
