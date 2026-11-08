@@ -3,6 +3,15 @@
 Organizador de tarefas com calendário. Tarefas não concluídas até o fim do dia
 aparecem como pendentes no dia seguinte (com o aviso "Atrasada desde ...").
 
+## Memória do projeto
+
+- [Histórico, estado validado, pendências e retomada](docs/RETOMADA.md)
+- [Decisões de produto e arquitetura, com seus motivos](docs/DECISOES.md)
+- [Orientações compartilhadas para agentes](AGENTS.md)
+
+Esses documentos registram o contexto para continuar o trabalho em outra sessão
+ou com outro agente. O README reúne as instruções de execução e o contrato da API.
+
 ## Estrutura
 
 - `android/` — app Android (Kotlin + Jetpack Compose + Room/SQLite). Funciona
