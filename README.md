@@ -6,7 +6,7 @@ aparecem como pendentes no dia seguinte (com o aviso "Atrasada desde ...").
 ## Estrutura
 
 - `android/` — app Android (Kotlin + Jetpack Compose + Room/SQLite). Funciona
-  offline e, em breve, sincroniza com o backend.
+  offline e sincroniza com o backend após conectar uma conta.
 - `backend/` — Laravel + MySQL, com front web em Vue e API com Sanctum.
   O navegador usa sessão; o Android usa token por aparelho.
 - `shared/fixtures/rules.json` — casos de teste das regras de recorrência e de
@@ -22,6 +22,53 @@ aparecem como pendentes no dia seguinte (com o aviso "Atrasada desde ...").
 
 Requer minSdk 26 (Android 8.0+). Testes: `./gradlew :app:testDebugUnitTest`
 dentro de `android/` (ou pelo Android Studio).
+
+### Conectar o Android ao servidor
+
+No menu **⋮ > Conta e sincronização**, informe o servidor, e-mail e senha da
+mesma conta criada no web. Antes de conectar a primeira conta, o app continua
+funcionando somente no aparelho. As tarefas locais são vinculadas à primeira
+conta conectada; Trabalho, Casa e Faculdade são conciliadas com as tags padrão
+já existentes no servidor.
+
+Para testar com o backend local:
+
+- Emulador padrão do Android Studio: `http://10.0.2.2:8000`.
+- Celular na mesma rede: use o IP local do computador, por exemplo
+  `http://192.168.1.10:8000`, e execute o servidor com
+  `php artisan serve --host=0.0.0.0 --port=8000` dentro de `backend/`.
+- HTTP só é aceito na versão debug e para endereços locais. A versão release
+  exige HTTPS. Use sempre o mesmo endereço para uma conta neste aparelho: a
+  identificação do espaço local inclui o servidor e o usuário.
+
+A sincronização acontece após alterações locais, ao abrir/retomar o app, a cada
+30 segundos enquanto a lista está aberta e periodicamente em segundo plano.
+O Android pode adiar o trabalho em segundo plano para economizar bateria.
+**Sincronizar agora** permite solicitar uma atualização manual. Falhas de conexão
+mantêm a fila local; uma sessão expirada pede novo login sem apagar os dados.
+
+Cada conta tem seu próprio banco e cursor. Ao sair, tarefas e alterações pendentes
+ficam guardadas para o próximo login daquela conta. Widgets e notificações usam
+apenas a conta ativa. A migração 5→6 preserva os registros existentes; não é
+necessário desinstalar o app nem limpar seus dados.
+
+O token é protegido pelo Android Keystore, a senha não é salva e a sessão não
+entra no backup automático. O vínculo entre contas e bancos é preservado junto
+dos dados. Em conta conectada, **Importar backup** adiciona novas cópias, sem
+substituir ou apagar tarefas do servidor. Backups exportados de contas também
+recebem IDs novos ao serem importados em outro espaço local.
+
+Validação no aparelho:
+
+1. Atualize o app mantendo os dados e confira tarefas, tags, recorrências e prazos.
+2. Entre na conta do web e confira a importação, sem duplicar as tags padrão.
+3. Crie e edite uma tarefa no Android; confira no web. Faça o caminho inverso e
+   use **Sincronizar agora** ou aguarde a atualização com a lista aberta.
+4. Ative o modo avião, crie/edite/exclua tarefas e reinicie o app. Reconecte e
+   confira se as alterações chegam ao web.
+5. Conclua uma recorrente e confira que há só uma próxima ocorrência.
+6. Saia da conta, entre em outra e confira também o widget. Volte à primeira e
+   verifique que seus dados e alterações pendentes continuam disponíveis.
 
 ## Backend
 
@@ -75,8 +122,7 @@ no navegador.
 
 ### Sincronização (`POST /api/v1/sync`)
 
-A API está pronta; a conexão do Android será feita na próxima etapa. O endpoint
-usa o mesmo token por aparelho das demais rotas. Para receber o estado inicial:
+O Android usa este endpoint com o token por aparelho recebido no login. Para receber o estado inicial:
 
 ```json
 {"cursor": 0, "tasks": [], "tags": []}
@@ -142,4 +188,4 @@ toda a conta. Nesta primeira versão, a resposta incremental não tem paginaçã
   com o cursor anterior. O cursor e a fila de envio devem ser separados por conta.
 
 A importação inicial mantém IDs locais; tags de nomes iguais não são mescladas
-automaticamente. A etapa Android fará a conciliação das tags padrão antes do envio.
+automaticamente. O Android concilia as tags padrão antes do primeiro envio.

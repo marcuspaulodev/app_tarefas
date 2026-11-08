@@ -11,6 +11,7 @@ import com.marcuspaulo.tarefas.MainActivity
 import com.marcuspaulo.tarefas.R
 import com.marcuspaulo.tarefas.TarefasApplication
 import com.marcuspaulo.tarefas.data.AppDatabase
+import com.marcuspaulo.tarefas.sync.SessionStore
 import com.marcuspaulo.tarefas.data.Ids
 
 class DeadlineReminderWorker(
@@ -23,7 +24,10 @@ class DeadlineReminderWorker(
         // ID, e o TarefasApplication reagenda esses prazos com os IDs novos.
         val taskId = inputData.getString(KEY_TASK_ID) ?: return Result.success()
 
-        val task = AppDatabase.getInstance(applicationContext).taskDao().getById(taskId)
+        val store = SessionStore.get(applicationContext)
+        val workspace = inputData.getString(KEY_WORKSPACE) ?: return Result.success()
+        if (workspace != store.workspaceKey) return Result.success()
+        val task = AppDatabase.activeOrNull(applicationContext)?.taskDao()?.getById(taskId)
         if (task == null || task.completed || task.deadline == null) return Result.success()
 
         val notificationManager = NotificationManagerCompat.from(applicationContext)
@@ -47,11 +51,13 @@ class DeadlineReminderWorker(
             .setContentIntent(pendingIntent)
             .build()
 
+        if (workspace != store.workspaceKey) return Result.success()
         notificationManager.notify(Ids.notificationId(taskId), notification)
         return Result.success()
     }
 
     companion object {
         const val KEY_TASK_ID = "taskId"
+        const val KEY_WORKSPACE = "workspace"
     }
 }

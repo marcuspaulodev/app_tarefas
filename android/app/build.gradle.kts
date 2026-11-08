@@ -35,6 +35,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     // Os testes de migration leem os schemas exportados pelo Room. Os testes do Robolectric

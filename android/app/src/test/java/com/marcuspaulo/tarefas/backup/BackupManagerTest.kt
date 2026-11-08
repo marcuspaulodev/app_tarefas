@@ -36,7 +36,7 @@ class BackupManagerTest {
             AppDatabase::class.java
         ).allowMainThreadQueries().build()
         backup = BackupManager(database)
-        repository = TaskRepository(database.taskDao(), database.tagDao())
+        repository = TaskRepository(database)
     }
 
     @After
@@ -120,4 +120,46 @@ class BackupManagerTest {
         backup.importFromJson(json.toString())
         assertEquals(listOf("fica"), database.taskDao().getAllTasksOnce().map { it.title })
     }
+    @Test
+    fun `importacao em conta adiciona copias preservando tarefas atuais e recorrencia`() = runBlocking {
+        repository.addTag("Casa", "#00C853")
+        val tag = repository.allTags.first().single()
+        val task = repository.addTask("Recorrente", "", day, null, Priority.MEDIUM, "DAILY", setOf(tag.id))
+        repository.toggleCompleted(task, setOf(tag.id), day)
+        val originalIds = database.taskDao().getAllTasksOnce().map { it.id }.toSet()
+        val json = backup.exportToJson()
+        database.syncStateDao().save(com.marcuspaulo.tarefas.data.SyncState(cursor = 9, initialized = true))
+        BackupManager(database, mergeIntoAccount = true).importFromJson(json)
+        val all = database.taskDao().getAllTasksOnce()
+        assertEquals(4, all.size)
+        assertEquals(9L, database.syncStateDao().get()!!.cursor)
+        val imported = all.filter { it.id !in originalIds }
+        val first = imported.single { it.completed }
+        val next = imported.single { !it.completed }
+        assertEquals(first.id, first.seriesId)
+        assertEquals(com.marcuspaulo.tarefas.data.Ids.occurrenceId(first.id, day.plusDays(1)), next.id)
+        assertEquals(listOf("Casa"), database.taskDao().getTaskWithTagsById(next.id)!!.tags.map { it.name })
+        assertEquals(true, next.needsSync)
+    }
+
+    @Test
+    fun `backup exportado de conta ganha ids novos ao restaurar em modo local`() = runBlocking {
+        val original = repository.addTask("Conta", "", day, null, Priority.MEDIUM, null, emptySet())
+        val json = BackupManager(database, mergeIntoAccount = true).exportToJson()
+        backup.importFromJson(json)
+        val restored = database.taskDao().getAllTasksOnce().single()
+        org.junit.Assert.assertNotEquals(original.id, restored.id)
+        assertEquals(original.title, restored.title)
+    }
+
+    @Test
+    fun `backup invalido nao apaga tarefas da conta`() = runBlocking {
+        val original = repository.addTask("Manter", "", day, null, Priority.MEDIUM, null, emptySet())
+        try {
+            BackupManager(database, mergeIntoAccount = true).importFromJson("{}")
+            org.junit.Assert.fail("Esperava backup invalido")
+        } catch (_: org.json.JSONException) { }
+        assertEquals(original.id, database.taskDao().getAllTasksOnce().single().id)
+    }
+
 }

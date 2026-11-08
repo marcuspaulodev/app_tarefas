@@ -117,6 +117,8 @@ fun AddTaskDialog(
                     value = title,
                     onValueChange = { title = it },
                     label = { Text("Título") },
+                    isError = title.length > 255,
+                    supportingText = if (title.length > 255) ({ Text("Use até 255 caracteres") }) else null,
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -124,6 +126,8 @@ fun AddTaskDialog(
                     value = description,
                     onValueChange = { description = it },
                     label = { Text("Descrição (opcional)") },
+                    isError = description.length > 5000,
+                    supportingText = if (description.length > 5000) ({ Text("Use até 5000 caracteres") }) else null,
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -273,7 +277,7 @@ fun AddTaskDialog(
                         )
                     )
                 },
-                enabled = title.isNotBlank()
+                enabled = title.isNotBlank() && title.length <= 255 && description.length <= 5000 && selectedTagIds.size <= 100
             ) {
                 Text(if (isEditing) "Salvar" else "Adicionar")
             }

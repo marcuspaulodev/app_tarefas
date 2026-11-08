@@ -151,14 +151,14 @@ class TaskViewModel(
         val original = _editingTask.value?.task ?: return
         if (title.isBlank()) return
         viewModelScope.launch {
-            val updated = original.rescheduledTo(date).copy(
+            val edited = original.copy(
                 title = title.trim(),
                 description = description.trim(),
                 deadline = deadline,
                 priority = priority,
                 recurrence = recurrence
             )
-            repository.updateTask(updated, tagIds)
+            val updated = repository.updateTask(edited, tagIds, selectedDate = date) ?: return@launch
             if (deadline != null) {
                 reminderScheduler.scheduleForTask(updated)
             } else {

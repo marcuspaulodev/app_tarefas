@@ -130,7 +130,7 @@ class MigrationTest {
         }
 
         val db = openMigrated()
-        val repository = TaskRepository(db.taskDao(), db.tagDao())
+        val repository = TaskRepository(db)
         val task = db.taskDao().getAllTasksOnce().single()
 
         repository.toggleCompleted(task, emptySet(), day)
@@ -149,4 +149,26 @@ class MigrationTest {
         assertEquals(emptyList<Task>(), db.taskDao().getAllTasksOnce())
         assertEquals(emptyList<Tag>(), db.tagDao().getAllTagsOnce())
     }
+    @Test
+    fun `migracao 5 para 6 preserva exclusoes e marca todos os registros para envio`() = runBlocking {
+        val id = Ids.newId()
+        val tagId = Ids.newId()
+        helper.createDatabase(dbName, 5).apply {
+            execSQL("INSERT INTO tags (id, name, colorHex, updatedAt, deletedAt) VALUES (?, 'Casa', '#00C853', 2000, 2000)", arrayOf(tagId))
+            execSQL("INSERT INTO tasks (id, title, description, date, originalDate, priority, completed, createdAt, updatedAt, deletedAt) VALUES (?, 'Excluída', '', 20000, 19999, 'HIGH', 1, 1000, 2000, 2000)", arrayOf(id))
+            execSQL("INSERT INTO task_tag_cross_ref (taskId, tagId) VALUES (?, ?)", arrayOf(id, tagId))
+            close()
+        }
+        helper.runMigrationsAndValidate(dbName, 6, true, MIGRATION_5_6).close()
+        val db = openMigrated()
+        val task = db.taskDao().getIncludingDeleted(id)!!
+        assertEquals(2000L, task.deletedAt)
+        assertEquals(true, task.needsSync)
+        assertEquals(LocalDate.ofEpochDay(19999), task.originalDate)
+        assertEquals(true, db.tagDao().getIncludingDeleted(tagId)!!.needsSync)
+        assertNull(db.syncStateDao().get())
+        db.syncStateDao().save(SyncState(cursor = 42, initialized = true))
+        assertEquals(42L, db.syncStateDao().get()!!.cursor)
+    }
+
 }

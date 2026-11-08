@@ -1,6 +1,7 @@
 package com.marcuspaulo.tarefas.data
 
 import androidx.room.Entity
+import androidx.room.ColumnInfo
 import androidx.room.PrimaryKey
 import java.time.LocalDate
 
@@ -21,7 +22,8 @@ data class Task(
     /** Horário da última alteração, usado para decidir conflitos na sincronização. */
     val updatedAt: Long = createdAt,
     /** Exclusão lógica: a linha fica para a sincronização avisar os outros aparelhos. */
-    val deletedAt: Long? = null
+    val deletedAt: Long? = null,
+    @ColumnInfo(defaultValue = "1") val needsSync: Boolean = true
 ) {
     val isOverdueRollover: Boolean
         get() = !completed && originalDate.isBefore(LocalDate.now())

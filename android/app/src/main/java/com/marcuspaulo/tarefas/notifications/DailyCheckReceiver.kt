@@ -10,6 +10,7 @@ import com.marcuspaulo.tarefas.MainActivity
 import com.marcuspaulo.tarefas.R
 import com.marcuspaulo.tarefas.TarefasApplication
 import com.marcuspaulo.tarefas.data.AppDatabase
+import com.marcuspaulo.tarefas.sync.SessionStore
 import com.marcuspaulo.tarefas.data.TaskRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -45,12 +46,14 @@ class DailyCheckReceiver : BroadcastReceiver() {
         val notificationManager = NotificationManagerCompat.from(context)
         if (!notificationManager.areNotificationsEnabled()) return
 
-        val database = AppDatabase.getInstance(context)
-        val tasks = TaskRepository(database.taskDao(), database.tagDao())
+        val store = SessionStore.get(context)
+        val workspace = store.workspaceKey ?: return
+        val database = AppDatabase.activeOrNull(context) ?: return
+        val tasks = TaskRepository(database)
             .pendingTasksUpTo(LocalDate.now())
             .first()
         // Nada pendente: não incomoda.
-        if (tasks.isEmpty()) return
+        if (tasks.isEmpty() || store.workspaceKey != workspace) return
 
         val openAppIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
