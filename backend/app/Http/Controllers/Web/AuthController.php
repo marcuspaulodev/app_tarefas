@@ -23,7 +23,7 @@ class AuthController extends Controller
             throw ValidationException::withMessages(['email' => 'E-mail ou senha incorretos.']);
         }
 
-        $request->session()->regenerate();
+        $this->regenerateSession($request);
 
         return new UserResource($request->user());
     }
@@ -38,7 +38,7 @@ class AuthController extends Controller
         });
 
         Auth::guard('web')->login($user);
-        $request->session()->regenerate();
+        $this->regenerateSession($request);
 
         return (new UserResource($user))->response()->setStatusCode(Response::HTTP_CREATED);
     }
@@ -50,5 +50,11 @@ class AuthController extends Controller
         $request->session()->regenerateToken();
 
         return response()->noContent();
+    }
+
+    private function regenerateSession(Request $request): void
+    {
+        $request->session()->regenerate();
+        $request->session()->put('password_hash_web', Auth::guard('web')->hashPasswordForCookie($request->user()->getAuthPassword()));
     }
 }

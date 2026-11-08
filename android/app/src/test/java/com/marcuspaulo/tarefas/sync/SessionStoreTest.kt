@@ -3,6 +3,7 @@ package com.marcuspaulo.tarefas.sync
 import android.app.Application
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -61,7 +62,9 @@ class SessionStoreTest {
         assertFalse(store.session.value!!.expired)
         store.expire(b)
         assertTrue(store.session.value!!.expired)
-        assertEquals(b.key, store.workspaceKey)
+        assertEquals("", store.session.value!!.token)
+        assertNull(store.workspaceKey)
+        assertNull(store.databaseName(store.session.value))
     }
 
     @Test fun `credencial ilegivel exige login sem liberar banco privado como local`() {
@@ -71,5 +74,22 @@ class SessionStoreTest {
         assertNull(restored.session.value)
         assertNull(restored.workspaceKey)
         assertEquals("tarefas.db", restored.databaseName(a))
+    }
+
+    @Test fun `sessao expirada de versao anterior bloqueia os dados e descarta o token ao reiniciar`() {
+        SessionStore(context, cipher).connect(a)
+        val auth = context.getSharedPreferences("session", Context.MODE_PRIVATE)
+        val old = JSONObject(cipher.decrypt(auth.getString("session", null)!!)).put("expired", true)
+        auth.edit().putString("session", cipher.encrypt(old.toString())).commit()
+        val restored = SessionStore(context, cipher)
+        assertTrue(restored.session.value!!.expired)
+        assertEquals("", restored.session.value!!.token)
+        assertNull(restored.workspaceKey)
+        assertNull(restored.databaseName(restored.session.value))
+        assertNull(restored.databaseName(null))
+        assertFalse(cipher.decrypt(auth.getString("session", null)!!).contains(a.token))
+        restored.connect(a.copy(token = "renewed-token"))
+        assertEquals(a.key, restored.workspaceKey)
+        assertEquals("tarefas.db", restored.databaseName(restored.session.value))
     }
 }

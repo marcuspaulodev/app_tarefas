@@ -77,6 +77,52 @@ class SyncApiTest {
         }
     }
 
+    @Test fun `recuperacao envia apenas email sem token ou senha e devolve a confirmacao`() = runBlocking {
+        val message = "Se este e-mail estiver cadastrado, você receberá um link."
+        TestServer(JSONObject().put("message", message).toString()).use { server ->
+            assertEquals(message, HttpSyncApi().requestPasswordReset(server.url + "/api/v1/", " test@example.test "))
+            val request = server.request()
+            assertEquals("POST /api/v1/forgot-password HTTP/1.1", request.line)
+            assertNull(request.headers["authorization"])
+            assertEquals(setOf("email"), request.body.keys().asSequence().toSet())
+            assertEquals("test@example.test", request.body.getString("email"))
+        }
+    }
+
+    @Test fun `validacao da sessao consulta usuario com token e devolve revogacao`() = runBlocking {
+        for (status in listOf(200, 401)) {
+            TestServer("""{"data":{"id":4}}""", status).use { server ->
+                val session = Session(server.url, 4, "Teste", "test@example.test", "test-token")
+                try {
+                    HttpSyncApi().validateSession(session)
+                    assertEquals(200, status)
+                } catch (error: ApiException) {
+                    assertEquals(401, status)
+                    assertEquals(status, error.status)
+                }
+                val request = server.request()
+                assertEquals("GET /api/v1/user HTTP/1.1", request.line)
+                assertEquals("Bearer test-token", request.headers["authorization"])
+                assertEquals(0, request.body.length())
+            }
+        }
+    }
+
+    @Test fun `recuperacao mostra validacao e limite de tentativas sem fingir envio`() = runBlocking {
+        for ((status, message) in listOf(422 to "Informe um e-mail válido.", 429 to "Muitas tentativas. Aguarde um pouco e tente novamente.")) {
+            TestServer("""{"errors":{"email":["Informe um e-mail válido."]}}""", status).use { server ->
+                try {
+                    HttpSyncApi().requestPasswordReset(server.url, "invalid")
+                    fail("Esperava HTTP $status")
+                } catch (error: ApiException) {
+                    assertEquals(status, error.status)
+                    assertEquals(message, error.message)
+                }
+                server.request()
+            }
+        }
+    }
+
     private data class CapturedRequest(val line: String, val headers: Map<String, String>, val body: JSONObject)
 
     /** Servidor HTTP de uma chamada; exercita HttpURLConnection sem dependências extras. */
@@ -98,7 +144,7 @@ class SyncApiTest {
                 val headers = lines.drop(1).filter { ':' in it }.associate {
                     it.substringBefore(':').lowercase() to it.substringAfter(':').trim()
                 }
-                val content = ByteArray(headers.getValue("content-length").toInt())
+                val content = ByteArray(headers["content-length"]?.toInt() ?: 0)
                 var read = 0
                 while (read < content.size) {
                     val count = input.read(content, read, content.size - read)
@@ -111,7 +157,7 @@ class SyncApiTest {
                     "Content-Length: ${response.size}\r\nLocation: https://example.invalid/other\r\nConnection: close\r\n\r\n").toByteArray())
                 output.write(response)
                 output.flush()
-                CapturedRequest(lines.first(), headers, JSONObject(String(content, Charsets.UTF_8)))
+                CapturedRequest(lines.first(), headers, if (content.isEmpty()) JSONObject() else JSONObject(String(content, Charsets.UTF_8)))
             }
         }
         fun request(): CapturedRequest = captured.get(10, TimeUnit.SECONDS)

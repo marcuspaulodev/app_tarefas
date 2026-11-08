@@ -1,37 +1,28 @@
 <script setup>
-import { computed, reactive, ref } from 'vue';
+import { computed } from 'vue';
+import { useAuthForm } from '../composables/useAuthForm';
+import { endpoints, initializeCsrf, request } from '../lib/api';
 import AppIcon from './AppIcon.vue';
 import ThemeSwitcher from './ThemeSwitcher.vue';
 
-const props = defineProps({ authenticate: Function, notice: String });
-const mode = ref('login');
-const busy = ref(false);
-const error = ref('');
-const errors = ref({});
-const form = reactive({ name: '', email: '', password: '', password_confirmation: '' });
-const registering = computed(() => mode.value === 'register');
-
-function changeMode(value) {
-    mode.value = value;
-    error.value = '';
-    errors.value = {};
-    form.password = '';
-    form.password_confirmation = '';
+const props = defineProps({ authenticate: Function, notice: String, recovery: Object });
+async function send(url, body) {
+    await initializeCsrf();
+    return request(url, { method: 'POST', body });
 }
-
-async function submit() {
-    busy.value = true;
-    error.value = '';
-    errors.value = {};
-    try {
-        await props.authenticate(mode.value, { ...form, name: form.name.trim(), email: form.email.trim() });
-    } catch (failure) {
-        error.value = failure.message;
-        errors.value = failure.errors ?? {};
-    } finally {
-        busy.value = false;
-    }
-}
+const { mode, busy, error, errors, status, form, registering, forgetting, resetting, changeMode, submit } = useAuthForm({
+    authenticate: (...args) => props.authenticate(...args),
+    requestRecovery: body => send(endpoints.forgotPassword, body),
+    resetPassword: body => send(endpoints.resetPassword, body),
+    recovery: props.recovery,
+    leaveRecovery: () => window.history.replaceState(null, '', endpoints.home),
+});
+const title = computed(() => forgetting.value ? 'Esqueceu sua senha?' : resetting.value ? 'Uma nova senha.' : registering.value ? 'Vamos começar?' : 'Bom ter você aqui.');
+const subtitle = computed(() => forgetting.value ? 'Informe o e-mail da sua conta para receber um link de recuperação.'
+    : resetting.value ? 'Escolha uma senha com pelo menos 8 caracteres para entrar no site e no app.'
+        : registering.value ? 'Crie sua conta e organize o primeiro dia.' : 'Entre para continuar de onde parou.');
+const submitLabel = computed(() => forgetting.value ? 'Enviar link' : resetting.value ? 'Salvar nova senha' : registering.value ? 'Criar minha conta' : 'Entrar');
+const message = computed(() => status.value || (mode.value === 'login' ? props.notice : ''));
 </script>
 
 <template>
@@ -54,13 +45,13 @@ async function submit() {
                 </div>
             </section>
             <section class="auth-card" aria-labelledby="auth-title">
-                <div class="auth-tabs" role="group" aria-label="Acesso à conta">
+                <div v-if="!forgetting && !resetting" class="auth-tabs" role="group" aria-label="Acesso à conta">
                     <button type="button" :aria-pressed="!registering" :disabled="busy" @click="changeMode('login')">Entrar</button>
                     <button type="button" :aria-pressed="registering" :disabled="busy" @click="changeMode('register')">Criar conta</button>
                 </div>
-                <h2 id="auth-title">{{ registering ? 'Vamos começar?' : 'Bom ter você aqui.' }}</h2>
-                <p class="auth-subtitle">{{ registering ? 'Crie sua conta e organize o primeiro dia.' : 'Entre para continuar de onde parou.' }}</p>
-                <p v-if="notice && !error" class="form-notice" role="status">{{ notice }}</p>
+                <h2 id="auth-title">{{ title }}</h2>
+                <p class="auth-subtitle">{{ subtitle }}</p>
+                <p v-if="message && !error" class="form-notice" role="status">{{ message }}</p>
                 <p v-if="error" class="form-error" role="alert">{{ error }}</p>
                 <form class="form-stack" @submit.prevent="submit">
                     <label v-if="registering" class="field">Nome
@@ -71,15 +62,20 @@ async function submit() {
                         <input v-model="form.email" type="email" name="email" autocomplete="username" required maxlength="255" :disabled="busy" :aria-invalid="!!errors.email" aria-describedby="email-error" placeholder="voce@exemplo.com">
                         <span v-if="errors.email" id="email-error" class="field-error">{{ errors.email[0] }}</span>
                     </label>
-                    <label class="field">Senha
-                        <input v-model="form.password" type="password" name="password" :autocomplete="registering ? 'new-password' : 'current-password'" required :minlength="registering ? 8 : undefined" :disabled="busy" :aria-invalid="!!errors.password" aria-describedby="password-error" :placeholder="registering ? 'Pelo menos 8 caracteres' : 'Sua senha'">
+                    <label v-if="!forgetting" class="field">{{ resetting ? 'Nova senha' : 'Senha' }}
+                        <input v-model="form.password" type="password" name="password" :autocomplete="registering || resetting ? 'new-password' : 'current-password'" required :minlength="registering || resetting ? 8 : undefined" :disabled="busy" :aria-invalid="!!errors.password" aria-describedby="password-error" :placeholder="registering || resetting ? 'Pelo menos 8 caracteres' : 'Sua senha'">
                         <span v-if="errors.password" id="password-error" class="field-error">{{ errors.password[0] }}</span>
                     </label>
-                    <label v-if="registering" class="field">Confirmar senha
-                        <input v-model="form.password_confirmation" type="password" name="password_confirmation" autocomplete="new-password" required minlength="8" :disabled="busy">
+                    <label v-if="registering || resetting" class="field">Confirmar senha
+                        <input v-model="form.password_confirmation" type="password" name="password_confirmation" autocomplete="new-password" required minlength="8" :disabled="busy" :aria-invalid="!!errors.password_confirmation" aria-describedby="confirmation-error">
+                        <span v-if="errors.password_confirmation" id="confirmation-error" class="field-error">{{ errors.password_confirmation[0] }}</span>
                     </label>
-                    <button type="submit" class="button primary auth-submit" :disabled="busy">{{ busy ? 'Aguarde…' : registering ? 'Criar minha conta' : 'Entrar' }}<AppIcon v-if="!busy" name="arrow" :size="19" /></button>
+                    <button type="submit" class="button primary auth-submit" :disabled="busy">{{ busy ? 'Aguarde…' : submitLabel }}<AppIcon v-if="!busy" name="arrow" :size="19" /></button>
                 </form>
+                <div class="auth-links">
+                    <button v-if="mode === 'login' || resetting" type="button" class="text-button" :disabled="busy" @click="changeMode('forgot')">{{ resetting ? 'Solicitar outro link' : 'Esqueci minha senha' }}</button>
+                    <button v-if="forgetting || resetting" type="button" class="text-button" :disabled="busy" @click="changeMode('login')">Voltar para entrar</button>
+                </div>
             </section>
         </main>
     </div>
