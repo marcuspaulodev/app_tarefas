@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\SyncController;
 use App\Http\Controllers\Api\V1\TagController;
 use App\Http\Controllers\Api\V1\TaskController;
 use Illuminate\Support\Facades\Route;
@@ -14,6 +15,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('logout', [AuthController::class, 'logout'])->name('logout');
         Route::get('user', [AuthController::class, 'me'])->name('user');
+        Route::post('sync', SyncController::class)->name('sync');
 
         Route::get('tasks/pending-counts', [TaskController::class, 'pendingCounts'])->name('tasks.pending-counts');
         Route::post('tasks/{task}/toggle', [TaskController::class, 'toggle'])->name('tasks.toggle');

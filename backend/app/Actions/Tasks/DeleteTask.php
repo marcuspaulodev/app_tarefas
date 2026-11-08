@@ -13,7 +13,10 @@ class DeleteTask
     public function handle(Task $task): void
     {
         DB::transaction(function () use ($task): void {
-            $task->sync_version = $task->user->claimNextSyncVersion();
+            $user = $task->user;
+            $version = $user->claimNextSyncVersion();
+            $task = $user->tasks()->findOrFail($task->id);
+            $task->sync_version = $version;
             $task->save();
             $task->delete();
         });

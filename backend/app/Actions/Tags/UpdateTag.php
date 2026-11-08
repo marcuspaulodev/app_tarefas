@@ -13,8 +13,11 @@ class UpdateTag
     public function handle(Tag $tag, array $attributes): Tag
     {
         return DB::transaction(function () use ($tag, $attributes): Tag {
+            $user = $tag->user;
+            $version = $user->claimNextSyncVersion();
+            $tag = $user->tags()->findOrFail($tag->id);
             $tag->fill($attributes);
-            $tag->sync_version = $tag->user->claimNextSyncVersion();
+            $tag->sync_version = $version;
             $tag->save();
 
             return $tag;

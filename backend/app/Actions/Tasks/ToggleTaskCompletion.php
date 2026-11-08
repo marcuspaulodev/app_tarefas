@@ -21,6 +21,7 @@ class ToggleTaskCompletion
         return DB::transaction(function () use ($task, $today): Task {
             $user = $task->user;
             $version = $user->claimNextSyncVersion();
+            $task = $user->tasks()->findOrFail($task->id);
             $isCompleting = ! $task->completed;
             $rule = $isCompleting ? RecurrenceRule::decode($task->recurrence) : null;
 

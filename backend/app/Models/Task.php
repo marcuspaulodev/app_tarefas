@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\Priority;
+use App\Models\Concerns\HasSyncTimestamp;
 use Database\Factories\TaskFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -26,7 +27,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Task extends Model
 {
     /** @use HasFactory<TaskFactory> */
-    use HasFactory, HasUuids, SoftDeletes;
+    use HasFactory, HasSyncTimestamp, HasUuids, SoftDeletes;
 
     /**
      * Milissegundos nos horários, como no app.
