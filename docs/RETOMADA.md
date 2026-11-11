@@ -184,7 +184,28 @@ aprovado: registrar quais verificações foram executadas localmente.
 
 ## Ambiente local e problemas já diagnosticados
 
-Informações observadas em 07–08/11/2026; conferir novamente antes de usar.
+### Máquina atual (11/11/2026)
+
+O desenvolvimento passou para outra máquina: Fedora 44, i5-1235U, 7,5 GB de
+RAM (já com uso alto de swap) e 80 GB livres em `/home`. Os bancos, o `.env`,
+o Android Studio e as chaves debug da máquina anterior não vieram junto.
+
+| Item | Contexto útil |
+|---|---|
+| Projeto | `~/sistemas/app_tarefas` |
+| Backend/web | Containers Podman do `compose.yaml` (branch `ambiente-podman`); ver README, “Ambiente com Podman” |
+| MySQL do Tarefas | Container `tarefas_db_1`, `127.0.0.1:3307`; a máquina tem outro MySQL na 3306 com bancos de outros projetos, que não deve ser usado |
+| Bancos | `tarefas` e `tarefas_test` recriados vazios; a conta usada no celular não existe neste servidor |
+| PHP/Node da máquina | PHP 8.5.12 e Node 22 também instalados; usados só pela integração Android ↔ Laravel |
+| Android | Android Studio sendo instalado pelo usuário; conferir JDK 21 embutido, SDK e Gradle 8.9 depois |
+| `podman-compose` | 1.6.0, instalado no usuário com `uv tool` |
+| Firewall | firewalld, zona FedoraWorkstation com 1025–65535/tcp liberadas; a 8000 já é acessível na LAN |
+
+Pendência crítica: não há `debug.keystore` nesta máquina. Um APK gerado aqui
+não atualiza o app do celular (assinatura diferente). Recuperar a chave do
+Android Studio da máquina anterior antes de instalar; não desinstalar o app.
+
+### Máquina anterior (07–08/11/2026)
 
 | Item | Contexto útil |
 |---|---|

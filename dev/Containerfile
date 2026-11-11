@@ -1,0 +1,19 @@
+# Ambiente de desenvolvimento do backend/web do Tarefas: PHP 8.5, Composer e Node 22.
+# O Android é compilado fora daqui, pelo Android Studio da máquina.
+FROM docker.io/library/node:22-trixie-slim AS node
+
+FROM docker.io/library/php:8.5-cli-trixie
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git unzip libicu-dev libzip-dev \
+    && docker-php-ext-install -j"$(nproc)" pdo_mysql intl zip bcmath pcntl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=docker.io/library/composer:2 /usr/bin/composer /usr/bin/composer
+COPY --from=node /usr/local/bin/node /usr/local/bin/node
+COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+    && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
+
+# O repositório inteiro é montado em /workspace (os testes leem shared/fixtures).
+WORKDIR /workspace/backend

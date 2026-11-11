@@ -1,0 +1,60 @@
+# Ambiente local do Tarefas isolado em containers Podman (rootless).
+# Uso: podman compose up -d  |  podman compose down
+# Detalhes em README.md, seção "Ambiente com Podman".
+name: tarefas
+
+services:
+  db:
+    image: docker.io/library/mysql:8.4
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: tarefas
+    # Configuração enxuta: a máquina de desenvolvimento tem pouca RAM.
+    command:
+      - --innodb-buffer-pool-size=128M
+      - --performance-schema=OFF
+      - --skip-name-resolve
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    ports:
+      # Só na própria máquina; 3306 fica para o MySQL que já existe nela.
+      - "127.0.0.1:3307:3306"
+    volumes:
+      - tarefas-mysql:/var/lib/mysql
+      - ./dev/mysql:/docker-entrypoint-initdb.d:ro,z
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build:
+      context: ./dev
+      dockerfile: Containerfile
+    image: localhost/tarefas-dev:latest
+    depends_on:
+      - db
+    # Variáveis reais têm precedência sobre o backend/.env, que usa o
+    # endereço visto da máquina (127.0.0.1:3307).
+    environment:
+      DB_HOST: db
+      DB_PORT: "3306"
+    volumes:
+      - .:/workspace:z
+    ports:
+      # 0.0.0.0 para o celular alcançar a API pela rede local.
+      - "0.0.0.0:8000:8000"
+    mem_limit: 1g
+    # Servidor embutido do PHP com o router do Laravel. `artisan serve` não
+    # serve aqui: ele descarta as variáveis que também estão no .env (DB_HOST).
+    working_dir: /workspace/backend/public
+    command:
+      - php
+      - -S
+      - 0.0.0.0:8000
+      - ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php
+
+volumes:
+  tarefas-mysql:

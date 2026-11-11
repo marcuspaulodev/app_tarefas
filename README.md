@@ -131,10 +131,52 @@ exige que os cenários sejam executados, sem testes pulados.
 
 Requer PHP 8.3+, Composer e MySQL 8.4. Para o front, Node.js 22.12+ e npm.
 
+### Ambiente com Podman
+
+O `compose.yaml` da raiz sobe o backend isolado do restante da máquina, sem
+root: `db` (MySQL 8.4 com `tarefas` e `tarefas_test`, num volume próprio) e
+`app` (PHP 8.5, Composer e Node 22, imagem de `dev/Containerfile`). O Android
+continua no Android Studio da máquina. Requer Podman e `podman-compose`
+(`uv tool install podman-compose` ou `sudo dnf install podman-compose`).
+
+| Serviço | Endereço na máquina | Limite de memória |
+|---|---|---|
+| `db` | `127.0.0.1:3307` (a 3306 fica para outro MySQL) | 512 MB |
+| `app` | `0.0.0.0:8000`, acessível pelo celular na rede local | 1 GB |
+
+Primeira vez, a partir da raiz do repositório:
+
+```sh
+podman compose build
+podman compose up -d db
+cp backend/.env.example backend/.env       # já aponta para 127.0.0.1:3307
+podman compose run --rm -T app composer install
+podman compose run --rm -T app npm ci
+podman compose run --rm -T app php artisan key:generate
+podman compose run --rm -T app php artisan migrate
+podman compose run --rm -T app npm run build
+podman compose up -d                       # web e API em http://localhost:8000
+```
+
+No dia a dia: `podman compose up -d` para iniciar, `podman compose down` para
+parar (os dados ficam no volume `tarefas_tarefas-mysql`; `down -v` os apagaria).
+Comandos rodam com `podman compose run --rm -T app <comando>`, por exemplo
+`php vendor/bin/phpunit`, `npm test` ou `php vendor/bin/pint --dirty`.
+Logs do servidor: `podman logs -f tarefas_app_1`.
+
+Dentro do container, `DB_HOST=db` e `DB_PORT=3306` vêm do compose e têm
+precedência sobre o `.env`. Por isso o servidor usa `php -S` com o router do
+Laravel: `php artisan serve` descarta as variáveis que também existem no
+`.env` e tentaria `127.0.0.1:3307`. `vendor/` e `node_modules/` ficam na pasta
+do projeto, para a IDE enxergá-los. A integração Android ↔ Laravel roda com o
+PHP e o Gradle da máquina e usa o MySQL do container pelo `.env`.
+
+### Instalação direta
+
 ```sh
 cd backend
 composer install
-cp .env.example .env        # ajuste DB_USERNAME e DB_PASSWORD
+cp .env.example .env        # ajuste DB_PORT, DB_USERNAME e DB_PASSWORD
 php artisan key:generate
 php artisan migrate
 npm ci
