@@ -136,11 +136,21 @@ private fun TaskRow(task: Task, today: LocalDate, workspace: String) {
         Column(
             modifier = GlanceModifier.defaultWeight().clickable(actionStartActivity<MainActivity>())
         ) {
-            Text(
-                text = task.title,
-                maxLines = 1,
-                style = TextStyle(fontSize = 14.sp, color = GlanceTheme.colors.onSurface)
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = GlanceModifier.fillMaxWidth()) {
+                Text(
+                    text = task.title,
+                    maxLines = 1,
+                    style = TextStyle(fontSize = 14.sp, color = GlanceTheme.colors.onSurface),
+                    modifier = GlanceModifier.defaultWeight()
+                )
+                if (task.checklist.isNotEmpty()) {
+                    Text(
+                        text = " ${task.checklist.count { it.done }}/${task.checklist.size}",
+                        maxLines = 1,
+                        style = TextStyle(fontSize = 12.sp, color = GlanceTheme.colors.onSurfaceVariant)
+                    )
+                }
+            }
             if (task.originalDate.isBefore(today)) {
                 Text(
                     text = "Atrasada desde ${task.originalDate.format(DATE_FMT)}",

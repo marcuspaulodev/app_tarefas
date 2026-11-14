@@ -22,6 +22,7 @@ class TaskResource extends JsonResource
             'id' => $this->id,
             'title' => $this->title,
             'description' => $this->description,
+            'checklist' => $this->checklist,
             'date' => $this->date,
             'original_date' => $this->original_date,
             'deadline' => $this->deadline,

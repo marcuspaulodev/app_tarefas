@@ -18,6 +18,9 @@ const paths = {
     calendar: 'M4 5h16v16H4ZM8 2v6m8-6v6M4 10h16',
     arrow: 'M5 12h14m-5-5 5 5-5 5',
     tag: 'M3 3h8l10 10-8 8L3 11ZM7 7h.01',
+    up: 'm6 15 6-6 6 6',
+    down: 'm6 9 6 6 6-6',
+    checklist: 'M10 6h11M10 12h11M10 18h11M3 6l1.5 1.5L7 5M3 12l1.5 1.5L7 11M3 18l1.5 1.5L7 17',
 };
 </script>
 

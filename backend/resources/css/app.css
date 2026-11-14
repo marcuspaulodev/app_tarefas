@@ -150,6 +150,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .task-row:hover .delete-task, .delete-task:focus-visible { opacity: 1; }
 .delete-task:hover { color: var(--high); background: var(--error-surface); }
 .is-busy { opacity: .65; }
+.task-main { min-width: 0; }
+.checklist-toggle { display: inline-flex; align-items: center; gap: 5px; margin-top: 7px; padding: 3px 8px; border: 1px solid var(--rule); border-radius: 7px; background: transparent; color: var(--ink-soft); font-size: 13px; }
+.checklist-toggle:hover { color: var(--ink); border-color: var(--ink-soft); }
+.checklist-toggle.complete { color: var(--low); }
+.task-checklist { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 2px; }
+.task-checklist label { display: flex; align-items: flex-start; gap: 9px; padding: 4px 0; font-size: 15px; cursor: pointer; overflow-wrap: anywhere; }
+.task-checklist input { width: 17px; height: 17px; margin: 3px 0 0; accent-color: var(--check); flex-shrink: 0; cursor: pointer; }
+.task-checklist .done span { color: var(--completed); text-decoration: line-through; }
 .empty-state { display: flex; flex-direction: column; align-items: center; padding: 65px 10px; text-align: center; }
 .empty-symbol { display: grid; place-items: center; width: 72px; height: 72px; background: var(--paper); border-radius: 22px; margin-bottom: 22px; color: var(--ink-soft); }
 .empty-state h2 { font: 700 23px/1.3 'Bricolage Grotesque', system-ui, sans-serif; }
@@ -178,8 +186,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .field-error { color: var(--high); font-size: 13px; font-weight: 400; }
 .form-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 12px; }
-.weekday-picker, .tag-picker, .color-picker { padding: 0; margin: 0; border: 0; min-width: 0; }
-.weekday-picker legend, .tag-picker legend, .color-picker legend { font-size: 14px; font-weight: 700; margin-bottom: 10px; }
+.weekday-picker, .tag-picker, .color-picker, .checklist-editor { padding: 0; margin: 0; border: 0; min-width: 0; }
+.weekday-picker legend, .tag-picker legend, .color-picker legend, .checklist-editor legend { font-size: 14px; font-weight: 700; margin-bottom: 10px; }
 .weekday-picker label { display: inline-block; margin-right: 6px; margin-bottom: 6px; position: relative; }
 .weekday-picker input { position: absolute; opacity: 0; width: 40px; height: 40px; cursor: pointer; }
 .weekday-picker label span { display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid var(--rule); border-radius: 9px; font-size: 14px; }
@@ -187,6 +195,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .weekday-picker input:focus-visible + span, .color-picker input:focus-visible + span { outline: 2px solid var(--ring); outline-offset: 3px; }
 .tag-picker label { display: inline-flex; gap: 7px; align-items: center; margin: 0 8px 8px 0; border: 1px solid var(--rule); border-radius: 8px; padding: 6px 10px; font-size: 14px; cursor: pointer; max-width: 100%; }
 .tag-picker input { accent-color: var(--ink); }
+.checklist-editor ul { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 4px; }
+.checklist-editor li { display: flex; align-items: center; gap: 4px; }
+.checklist-editor li input[type='checkbox'] { width: 18px; height: 18px; margin: 0 6px 0 2px; accent-color: var(--check); flex-shrink: 0; }
+.checklist-editor li input:not([type]), .checklist-add input { flex: 1; min-width: 0; border: 1px solid var(--rule); border-radius: 8px; background: var(--sheet); color: var(--ink); padding: 7px 10px; font-size: 15px; }
+.checklist-editor .icon-button:disabled { opacity: .3; cursor: default; }
+.checklist-add { display: flex; gap: 8px; }
 .tag-picker label:has(input:checked) { background: var(--paper); border-color: var(--ink-soft); }
 .form-error, .form-notice { padding: 12px 14px; border-radius: 9px; font-size: 14px; margin-bottom: 4px; }
 .form-error { color: var(--high); background: var(--error-surface); }

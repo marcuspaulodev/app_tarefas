@@ -11,7 +11,14 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  * o app fecha com erro ao abrir o banco em vez de apagar os dados.
  */
 val ALL_MIGRATIONS: Array<Migration>
-    get() = arrayOf(MIGRATION_4_5, MIGRATION_5_6)
+    get() = arrayOf(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+
+/** Checklist guardado como JSON na tarefa; as existentes começam sem itens e não precisam ser reenviadas. */
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE tasks ADD COLUMN checklist TEXT NOT NULL DEFAULT '[]'")
+    }
+}
 
 /** Todos os registros existentes, inclusive excluídos, aguardam o primeiro envio. */
 val MIGRATION_5_6 = object : Migration(5, 6) {

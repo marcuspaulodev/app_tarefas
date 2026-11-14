@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1;
 
 use App\Enums\Priority;
+use App\Rules\ChecklistItems;
 use App\Rules\RecurrenceRuleFormat;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -29,6 +30,7 @@ class UpdateTaskRequest extends FormRequest
         return [
             'title' => ['sometimes', 'required', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string', 'max:5000'],
+            'checklist' => ['sometimes', 'nullable', 'array', new ChecklistItems],
             'date' => ['sometimes', 'required', 'date_format:Y-m-d'],
             'today' => ['required_with:date', 'date_format:Y-m-d'],
             'deadline' => ['sometimes', 'nullable', 'date_format:Y-m-d'],

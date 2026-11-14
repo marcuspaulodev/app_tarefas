@@ -2,6 +2,7 @@ package com.marcuspaulo.tarefas.backup
 
 import androidx.room.withTransaction
 import com.marcuspaulo.tarefas.data.AppDatabase
+import com.marcuspaulo.tarefas.data.Checklist
 import com.marcuspaulo.tarefas.data.Ids
 import com.marcuspaulo.tarefas.data.Priority
 import com.marcuspaulo.tarefas.data.Tag
@@ -14,7 +15,8 @@ import java.time.LocalDate
 /**
  * Formato do arquivo:
  * - versão 1: IDs numéricos (app até o banco versão 4);
- * - versão 2: IDs UUID, mais `seriesId` e `updatedAt`.
+ * - versão 2: IDs UUID, mais `seriesId` e `updatedAt`. Depois ganhou `checklist`, opcional:
+ *   arquivos sem ele restauram as tarefas sem itens, e apps antigos o ignoram.
  * Arquivos da versão 1 continuam podendo ser restaurados: os IDs ganham UUIDs novos.
  */
 private const val BACKUP_VERSION = 2
@@ -56,6 +58,7 @@ class BackupManager(
                     .put("completed", task.completed)
                     .put("createdAt", task.createdAt)
                     .put("updatedAt", task.updatedAt)
+                    .put("checklist", Checklist.toJson(task.checklist))
             )
         }
 
@@ -115,7 +118,8 @@ class BackupManager(
                 seriesId = obj.stringOrNull("seriesId"),
                 completed = obj.getBoolean("completed"),
                 createdAt = obj.getLong("createdAt"),
-                updatedAt = obj.optLong("updatedAt", now)
+                updatedAt = obj.optLong("updatedAt", now),
+                checklist = Checklist.fromJson(obj.optJSONArray("checklist"))
             )
         }
 

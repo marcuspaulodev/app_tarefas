@@ -1,6 +1,6 @@
 # Estado do projeto e retomada
 
-**Atualizado em 08/11/2026 — fuso America/Fortaleza.**
+**Atualizado em 14/11/2026 — fuso America/Fortaleza.**
 
 Este registro consolida o trabalho até o PR #9. A base funcional é a `main` no
 commit `c8a42bb232127448c43ea610febd0e2511899f79`. Nesse ponto, os PRs de
@@ -20,9 +20,10 @@ Orientações para agentes: [AGENTS.md](../AGENTS.md).
 2. Conferir `git status --short --branch`, o histórico e a base remota. Preservar
    quaisquer alterações locais, inclusive esta documentação se ainda não
    estiver commitada.
-3. Escolher a próxima entrega conforme o pedido atual. A recomendação deixada
-   foi **envio real de e-mails**, seguida da publicação do backend e do web.
-   Essas etapas ainda não foram iniciadas.
+3. Escolher a próxima entrega conforme o pedido atual. A recomendação continua
+   sendo **envio real de e-mails** junto com a **publicação do backend e do web**,
+   mas as duas dependem de domínio e VPS, que o usuário ainda não contratou
+   (14/11/2026). Sem eles, a etapa independente que resta é o CI (E06).
 4. Trabalhar em uma branch própria por etapa. Para e-mails, o nome sugerido é
    `email-producao`; esse nome é uma proposta, não uma branch já criada.
 5. Não reaplicar comandos de primeira instalação ao ambiente existente sem
@@ -51,12 +52,30 @@ acrescentados o widget de pendentes e a checagem diária às 8h, 13h e 18h.
 | Integração automatizada | Cliente Android/Room/HTTP contra Laravel real em banco de teste | [#7](https://github.com/marcuspaulodev/app_tarefas/pull/7) | `fe828a2` |
 | Recuperação de senha | Links no web/Android, redefinição no navegador, revogação de sessões e login obrigatório no app | [#8](https://github.com/marcuspaulodev/app_tarefas/pull/8) | `0139d39` |
 | Confirmação de e-mail | Envio no cadastro, reenvio, links assinados, status no web/Android e preservação da sincronização | [#9](https://github.com/marcuspaulodev/app_tarefas/pull/9) | `c8a42bb` |
+| Ambiente Podman | Containers de desenvolvimento para MySQL e PHP/Node | [#11](https://github.com/marcuspaulodev/app_tarefas/pull/11) | `524d3e5` |
+| Checklist (subtarefas) | Itens dentro da tarefa no web, Android, widget, sync, backup e recorrência; Room v7 | branch `subtarefas`, PR ainda não aberto | — |
 
 O último commit de implementação é `e2a7a0e` (confirmação de e-mail), já incluído
 no merge do PR #9. Os detalhes de implementação continuam no histórico do Git;
 as decisões que explicam essas mudanças estão no documento complementar.
 
 ## Estado validado da última etapa
+
+Em 14/11/2026, na etapa do checklist (branch `subtarefas`), na máquina original
+(`~/projetos/app_tarefas`, MySQL nativo na 3306):
+
+| Verificação | Resultado registrado |
+|---|---|
+| PHPUnit/backend | 127 testes: 126 aprovados, 1 integração optativa ignorada |
+| JavaScript | 23 testes aprovados |
+| Android | 97 testes: 87 aprovados, 10 cenários de integração optativos ignorados |
+| Integração Android ↔ Laravel | Executada: 11 cenários aprovados, incluindo o novo de checklist |
+| Build web e APK debug | Gerados |
+| Android lint | Sem erros; 19 avisos, nenhum nos arquivos alterados |
+| Formatação | Pint aprovado |
+| Banco de desenvolvimento | Migration do checklist aplicada em `tarefas` |
+| Correção no login web | Entrar a partir da tela de redefinição de senha deixava o site em 401; corrigido e validado pelo usuário (ver D09) |
+| Validação manual | Usuário testou o roteiro do checklist no site, no app (APK instalado por cima, banco migrado para v7), na recorrência, no widget e offline: aprovado |
 
 Em 08/11/2026, na etapa de confirmação de e-mail:
 
@@ -115,20 +134,12 @@ Estado: ambos funcionam localmente; não há deploy de produção registrado.
 Critério de conclusão: site e API acessíveis por HTTPS, cliente sincronizando
 com o servidor publicado e procedimento de backup/restauração validado.
 
-### E03 — Subtarefas/checklists
+### E03 — Subtarefas/checklists — entregue
 
-Estado: adiado durante a preparação da sincronização; ainda sem implementação.
-
-- Definir criação, edição, ordenação e conclusão dos itens dentro de uma tarefa.
-- Definir relação entre conclusão dos itens e da tarefa, além do comportamento
-  dos itens ao gerar uma nova ocorrência recorrente.
-- Evoluir schema/API/Room com migrations que preservem dados; incluir os itens
-  na sincronização, nos conflitos, nas exclusões e no backup.
-- Entregar no web e no Android e testar alterações offline entre clientes.
-
-Critério de conclusão: o checklist se comporta de forma consistente nos dois
-clientes, inclusive em recorrências e sem conexão. Esses detalhes de produto
-ainda não foram fechados.
+Implementado em 14/11/2026 como checklist dentro da tarefa. As decisões de
+produto e o formato estão em [DECISOES.md](DECISOES.md#d14--checklist-dentro-da-tarefa).
+Ideias que ficaram de fora e podem voltar se houver demanda: arrastar para
+reordenar, buscar pelo texto dos itens e conflito por item em vez de por tarefa.
 
 ### E04 — Planos e cobrança
 

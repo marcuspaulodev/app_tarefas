@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Models\Task;
+use App\Support\Checklist;
 use App\Support\OccurrenceId;
 use App\Support\RecurrenceRule;
 use Tests\TestCase;
@@ -54,6 +55,13 @@ class SharedRulesTest extends TestCase
             $task = new Task(['date' => $case['date'], 'completed' => $case['completed']]);
 
             $this->assertSame($case['shown_on'], $task->shownOn($case['today']), json_encode($case));
+        }
+    }
+
+    public function test_next_checklist(): void
+    {
+        foreach ($this->fixtures()['next_checklist'] as $case) {
+            $this->assertSame($case['next'], Checklist::forNextOccurrence($case['checklist']), json_encode($case));
         }
     }
 }

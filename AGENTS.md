@@ -34,7 +34,7 @@
   instalação. Há chaves debug diferentes no Android Studio Flatpak e no CLI
   desta máquina; veja a retomada.
 - Manter migrations explícitas do Room a partir da versão 4 e versionar os
-  schemas. O schema atual é 6. Não reintroduzir fallback destrutivo geral.
+  schemas. O schema atual é 7. Não reintroduzir fallback destrutivo geral.
 - Usar `tarefas_test` para testes de banco. Não executar testes destrutivos
   contra `tarefas`. A integração Android ↔ Laravel não deve disputar o banco
   de teste com outra suíte em execução.

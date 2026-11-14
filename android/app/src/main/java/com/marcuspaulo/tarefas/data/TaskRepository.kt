@@ -25,12 +25,14 @@ class TaskRepository(
 
     suspend fun addTask(
         title: String, description: String, date: LocalDate, deadline: LocalDate?,
-        priority: Priority, recurrence: String?, tagIds: Set<String>
+        priority: Priority, recurrence: String?, tagIds: Set<String>,
+        checklist: List<ChecklistItem> = emptyList()
     ): Task = database.withTransaction {
         val now = clock()
         val task = Task(
             id = Ids.newId(now), title = title, description = description, date = date,
-            deadline = deadline, priority = priority, recurrence = recurrence, createdAt = now
+            deadline = deadline, priority = priority, recurrence = recurrence, createdAt = now,
+            checklist = Checklist.cleaned(checklist)
         )
         dao.insert(task)
         setTags(task.id, tagIds)
@@ -47,7 +49,7 @@ class TaskRepository(
         val scheduled = if (selectedDate == null) current else current.rescheduledTo(selectedDate, today)
         val updated = scheduled.copy(
             title = task.title, description = task.description, deadline = task.deadline,
-            priority = task.priority, recurrence = task.recurrence,
+            priority = task.priority, recurrence = task.recurrence, checklist = Checklist.cleaned(task.checklist),
             updatedAt = nextTimestamp(current.updatedAt), needsSync = true
         )
         dao.update(updated)
@@ -79,13 +81,26 @@ class TaskRepository(
                     dao.insert(Task(
                         id = nextId, title = current.title, description = current.description,
                         date = nextDate, priority = current.priority, recurrence = current.recurrence,
-                        seriesId = seriesId, createdAt = now
+                        seriesId = seriesId, createdAt = now,
+                        checklist = Checklist.forNextOccurrence(current.checklist)
                     ))
                     setTags(nextId, currentTags)
                 }
             }
             updated
         }
+
+    /** Marca ou desmarca um item. Devolve a tarefa como ficou, ou null se ela ou o item sumiram. */
+    suspend fun toggleChecklistItem(taskId: String, itemId: String): Task? = database.withTransaction {
+        val current = dao.getById(taskId) ?: return@withTransaction null
+        if (current.checklist.none { it.id == itemId }) return@withTransaction null
+        val updated = current.copy(
+            checklist = current.checklist.map { if (it.id == itemId) it.copy(done = !it.done) else it },
+            updatedAt = nextTimestamp(current.updatedAt), needsSync = true
+        )
+        dao.update(updated)
+        updated
+    }
 
     suspend fun deleteTask(task: Task) = database.withTransaction {
         val current = dao.getById(task.id) ?: return@withTransaction
