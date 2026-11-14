@@ -16,8 +16,8 @@ Por isso, contas e isolamento de dados já fazem parte da base, enquanto planos
 e cobrança ficam para uma etapa posterior. iPhone não está no escopo atual.
 Equipes e tarefas compartilhadas não têm implementação nem etapa ativa.
 
-Subtarefas/checklists foram adiados até a base de sincronização estar pronta.
-Continuam pendentes; não confundir descrição de tarefa com checklist.
+Subtarefas foram entregues como checklist dentro da tarefa (D14), depois de a
+base de sincronização ficar pronta. Não confundir descrição de tarefa com checklist.
 
 ## D02 — Stack e organização
 
@@ -75,6 +75,7 @@ Uma ocorrência excluída também não pode reaparecer por essa operação.
 As regras atuais são diária e semanal por dias ISO, de 1 a 7. A próxima
 ocorrência usa a data de conclusão/exibição como base, preserva título,
 descrição, prioridade, tags e regra; o prazo não é copiado automaticamente.
+Do checklist, a próxima ocorrência recebe só os itens pendentes (D14).
 
 Exclusões usam `deletedAt`/`deleted_at`. A linha permanece como registro de
 exclusão para avisar os demais clientes. Não trocar por exclusão física sem
@@ -86,9 +87,10 @@ Fontes: [Ids.kt](../android/app/src/main/java/com/marcuspaulo/tarefas/data/Ids.k
 
 ## D05 — Migrations e backups locais
 
-O Room está na versão **6**, com schemas 4, 5 e 6 versionados. A migration 4→5
+O Room está na versão **7**, com schemas 4 a 7 versionados. A migration 4→5
 converteu IDs, acrescentou série e timestamps de sincronização; a 5→6 acrescentou
-o estado de sincronização e a marca de alterações pendentes. A preservação dos
+o estado de sincronização e a marca de alterações pendentes; a 6→7 acrescentou o
+checklist, vazio nas tarefas existentes e sem marcá-las para reenvio. A preservação dos
 dados é coberta por testes.
 
 O fallback destrutivo geral foi removido. Continua existindo uma exceção legada
@@ -203,6 +205,13 @@ Fontes: [ResetAccountPassword](../backend/app/Actions/Auth/ResetAccountPassword.
 [PasswordController](../backend/app/Http/Controllers/Api/V1/PasswordController.php),
 [SessionValidator.kt](../android/app/src/main/java/com/marcuspaulo/tarefas/sync/SessionValidator.kt).
 
+Ao entrar no site a partir da tela de redefinição (ou de outra página que não a
+inicial), o web recarrega a página inicial em vez de abrir o espaço na mesma
+página. A tela de redefinição usa `Referrer-Policy: no-referrer` para não vazar o
+token, e sem `Referer`/`Origin` o Sanctum não trata as chamadas GET seguintes como
+do site: elas respondiam 401 e mostravam “Sua sessão terminou” logo após um login
+bem-sucedido (corrigido em 14/11/2026).
+
 ## D10 — Confirmação de e-mail
 
 O cadastro envia a confirmação; contas antigas ainda não verificadas podem
@@ -284,3 +293,38 @@ HTTP é aceito no app debug somente para destinos locais; release exige HTTPS.
 Uma falha de conexão após trocar a senha foi causada pelo servidor restrito a
 `127.0.0.1`, e não por rejeição da nova senha. Conferir conectividade antes de
 alterar credenciais ou dados de conta.
+
+## D14 — Checklist dentro da tarefa
+
+Decidido com o usuário em 14/11/2026:
+
+| Pergunta | Decisão |
+|---|---|
+| Marcar o último item | Pergunta se quer concluir a tarefa (“Checklist completo”); não conclui sozinho. Concluir a tarefa não marca os itens |
+| Próxima ocorrência recorrente | Recebe só os itens que ficaram pendentes, desmarcados, na mesma ordem e com os mesmos IDs. Se todos foram marcados, nasce sem checklist |
+| Onde marcar | Direto na lista: o indicador “2/5” abre os itens. Criar, editar, reordenar (setas) e remover ficam no formulário da tarefa |
+| Widget | Mostra só o progresso “2/5” ao lado do título |
+
+O checklist é uma lista JSON `[{id, text, done}]` na própria tarefa (coluna
+`checklist` no MySQL e no Room), e não uma tabela própria. Assim ele entra sem
+código novo na sincronização, nos conflitos, nas exclusões e no backup. O custo
+aceito é que o conflito continua por tarefa: duas edições simultâneas do mesmo
+checklist em aparelhos diferentes resolvem pela última alteração da tarefa
+inteira (D06). Se o uso mostrar perdas reais, migrar para itens com versão própria.
+
+Limites: até 50 itens, texto de 1 a 255 caracteres sem espaços nas pontas, IDs
+UUID únicos dentro da tarefa. Os mesmos IDs podem existir em tarefas diferentes,
+porque as ocorrências de uma série os herdam; por isso a validação é uma regra
+única (`ChecklistItems`) e não `distinct` com curinga, que compararia todas as
+tarefas do lote. O MySQL reordena as chaves do JSON, então o model devolve sempre
+`id`, `text`, `done`. Na sincronização, a ausência do campo preserva o checklist
+guardado, para um app anterior não apagar itens criados no web. O backup JSON
+continua no formato 2, com `checklist` opcional. A busca não procura nos itens.
+
+A regra da próxima ocorrência está em `shared/fixtures/rules.json`
+(`next_checklist`) e é testada no PHP, no Kotlin e no JavaScript.
+
+Fontes: [Checklist.php](../backend/app/Support/Checklist.php),
+[ChecklistItems](../backend/app/Rules/ChecklistItems.php),
+[Checklist.kt](../android/app/src/main/java/com/marcuspaulo/tarefas/data/Checklist.kt),
+[checklist.js](../backend/resources/js/lib/checklist.js).

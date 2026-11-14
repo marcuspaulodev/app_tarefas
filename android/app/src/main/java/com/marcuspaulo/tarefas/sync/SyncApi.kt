@@ -2,6 +2,7 @@ package com.marcuspaulo.tarefas.sync
 
 import android.os.Build
 import com.marcuspaulo.tarefas.BuildConfig
+import com.marcuspaulo.tarefas.data.Checklist
 import com.marcuspaulo.tarefas.data.Priority
 import com.marcuspaulo.tarefas.data.Tag
 import com.marcuspaulo.tarefas.data.Task
@@ -133,6 +134,7 @@ class HttpSyncApi : SyncApi {
                 .put("recurrence", recurrence ?: JSONObject.NULL).put("series_id", seriesId ?: JSONObject.NULL)
                 .put("completed", completed).put("created_at", createdAt).put("updated_at", updatedAt)
                 .put("deleted_at", deletedAt ?: JSONObject.NULL).put("tag_ids", JSONArray(value.tagIds))
+                .put("checklist", Checklist.toJson(checklist))
         }
 
         internal fun parseTag(json: JSONObject): Tag = Tag(
@@ -148,7 +150,8 @@ class HttpSyncApi : SyncApi {
                 deadline = json.stringOrNull("deadline")?.let(LocalDate::parse), priority = Priority.valueOf(json.getString("priority")),
                 recurrence = json.stringOrNull("recurrence"), seriesId = json.stringOrNull("series_id"),
                 completed = json.getBoolean("completed"), createdAt = json.getLong("created_at"),
-                updatedAt = json.getLong("updated_at"), deletedAt = json.longOrNull("deleted_at"), needsSync = false
+                updatedAt = json.getLong("updated_at"), deletedAt = json.longOrNull("deleted_at"), needsSync = false,
+                checklist = Checklist.fromJson(json.optJSONArray("checklist"))
             ), (0 until ids.length()).map(ids::getString))
         }
     }

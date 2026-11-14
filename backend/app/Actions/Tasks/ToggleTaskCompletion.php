@@ -3,6 +3,7 @@
 namespace App\Actions\Tasks;
 
 use App\Models\Task;
+use App\Support\Checklist;
 use App\Support\OccurrenceId;
 use App\Support\RecurrenceRule;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +15,8 @@ class ToggleTaskCompletion
      *
      * Concluir registra o dia em que a tarefa estava aparecendo. Se ela é recorrente,
      * cria a próxima ocorrência com ID derivado da série e da data: concluir de novo,
-     * aqui ou no app, não duplica, e uma ocorrência excluída não volta.
+     * aqui ou no app, não duplica, e uma ocorrência excluída não volta. Do checklist,
+     * a próxima ocorrência recebe só os itens que ficaram pendentes.
      */
     public function handle(Task $task, string $today): Task
     {
@@ -44,6 +46,7 @@ class ToggleTaskCompletion
                         'id' => $nextId,
                         'title' => $task->title,
                         'description' => $task->description,
+                        'checklist' => Checklist::forNextOccurrence($task->checklist),
                         'date' => $nextDate,
                         'original_date' => $nextDate,
                         'deadline' => null,

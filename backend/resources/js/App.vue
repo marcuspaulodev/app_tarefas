@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useWorkspace } from './composables/useWorkspace';
 import { useEmailVerification } from './composables/useEmailVerification';
 import { endpoints, request } from './lib/api';
+import { completesChecklist } from './lib/checklist';
 import { addDays, dateGroups, dayGroups, dayTitle, filterByTag, formatDate, isCarried } from './lib/tasks';
 import AppDialog from './components/AppDialog.vue';
 import AppIcon from './components/AppIcon.vue';
@@ -18,9 +19,11 @@ const workspace = useWorkspace();
 const recovery = ref(endpoints.passwordRecovery);
 
 async function authenticate(mode, credentials) {
+    if (recovery.value || window.location.pathname !== new URL(endpoints.home, window.location.origin).pathname) {
+        await workspace.authenticate(mode, credentials, { reloadAt: endpoints.home });
+        return;
+    }
     await workspace.authenticate(mode, credentials);
-    recovery.value = null;
-    window.history.replaceState(null, '', endpoints.home);
 }
 const {
     user, booting, notice, today, selectedDate, month, view, searchInput, searchTerm, selectedTag,
@@ -40,6 +43,7 @@ const taskFormOpen = ref(false);
 const editingTask = ref(null);
 const tagsOpen = ref(false);
 const deletingTask = ref(null);
+const completionPrompt = ref(null);
 const deleting = ref(false);
 const deleteError = ref('');
 const loggingOut = ref(false);
@@ -84,6 +88,16 @@ function taskSaved(message) {
     workspace.notify(message);
 }
 
+async function checkItem(task, itemId) {
+    const lastItem = completesChecklist(task, itemId);
+    if (await workspace.toggleChecklistItem(task, itemId) && lastItem) completionPrompt.value = task;
+}
+
+function completeFromPrompt() {
+    workspace.toggleTask(completionPrompt.value);
+    completionPrompt.value = null;
+}
+
 async function confirmDelete() {
     deleting.value = true;
     deleteError.value = '';
@@ -125,6 +139,7 @@ watch(() => user.value?.id, () => {
     editingTask.value = null;
     tagsOpen.value = false;
     deletingTask.value = null;
+    completionPrompt.value = null;
     deleteError.value = '';
     menuOpen.value = false;
 });
@@ -199,7 +214,7 @@ onUnmounted(() => window.removeEventListener('focus', refreshEmailOnFocus));
                 <template v-else>
                     <section v-for="group in groups" :key="group.id" class="task-group" :aria-labelledby="`group-${group.id}`">
                         <h2 :id="`group-${group.id}`">{{ group.title }}<span v-if="group.hint">{{ group.hint }}</span><span v-if="view !== 'day' || searchTerm">{{ group.id.slice(0, 4) }}</span></h2>
-                        <TaskItem v-for="task in group.tasks" :key="task.id" :task="task" :today="today" :tags="tags" :busy="pendingTasks.has(task.id)" :show-date="false" @edit="openTask" @toggle="workspace.toggleTask" @delete="deletingTask = $event; deleteError = ''" />
+                        <TaskItem v-for="task in group.tasks" :key="task.id" :task="task" :today="today" :tags="tags" :busy="pendingTasks.has(task.id)" :show-date="false" @edit="openTask" @toggle="workspace.toggleTask" @check-item="checkItem" @delete="deletingTask = $event; deleteError = ''" />
                     </section>
                     <div v-if="!visibleTasks.length" class="empty-state">
                         <span class="empty-symbol"><AppIcon :name="searchTerm ? 'search' : view === 'completed' ? 'check' : 'calendar'" :size="32" /></span>
@@ -214,6 +229,10 @@ onUnmounted(() => window.removeEventListener('focus', refreshEmailOnFocus));
 
         <TaskForm v-if="taskFormOpen" :task="editingTask" :date="view === 'day' && !searchTerm ? selectedDate : today" :today="today" :tags="tags" :save="workspace.saveTask" @close="taskFormOpen = false" @saved="taskSaved" />
         <TagManager v-if="tagsOpen" :tags="tags" :save="workspace.saveTag" :remove="workspace.deleteTag" @close="tagsOpen = false" @saved="workspace.notify" />
+        <AppDialog v-if="completionPrompt" title="Checklist completo" @close="completionPrompt = null">
+            <p class="dialog-description">Todos os itens de “{{ completionPrompt.title }}” estão marcados. Quer concluir a tarefa?</p>
+            <footer class="dialog-actions"><button type="button" class="button secondary" @click="completionPrompt = null">Agora não</button><button type="button" class="button primary" autofocus @click="completeFromPrompt">Concluir tarefa</button></footer>
+        </AppDialog>
         <AppDialog v-if="deletingTask" title="Excluir tarefa?" :busy="deleting" @close="deletingTask = null">
             <p class="dialog-description">“{{ deletingTask.title }}” será excluída. As outras tarefas serão mantidas.</p>
             <p v-if="deleteError" class="form-error" role="alert">{{ deleteError }}</p>

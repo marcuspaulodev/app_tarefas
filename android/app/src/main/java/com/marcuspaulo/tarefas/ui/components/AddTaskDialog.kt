@@ -7,6 +7,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.Checkbox
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
@@ -32,6 +41,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.marcuspaulo.tarefas.data.Checklist
+import com.marcuspaulo.tarefas.data.ChecklistItem
 import com.marcuspaulo.tarefas.data.Priority
 import com.marcuspaulo.tarefas.data.RecurrenceRule
 import com.marcuspaulo.tarefas.data.Tag
@@ -66,7 +77,8 @@ data class TaskFormResult(
     val deadline: LocalDate?,
     val priority: Priority,
     val recurrence: String?,
-    val tagIds: Set<String>
+    val tagIds: Set<String>,
+    val checklist: List<ChecklistItem> = emptyList()
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -88,6 +100,14 @@ fun AddTaskDialog(
     var showDayPicker by remember { mutableStateOf(false) }
     var showDeadlinePicker by remember { mutableStateOf(false) }
     var selectedTagIds by remember { mutableStateOf(initialTagIds) }
+    var checklist by remember { mutableStateOf(initial?.checklist ?: emptyList()) }
+    var newItemText by remember { mutableStateOf("") }
+    fun addItem() {
+        val text = newItemText.trim()
+        if (text.isEmpty() || checklist.size >= Checklist.MAX_ITEMS) return
+        checklist = checklist + ChecklistItem(text = text)
+        newItemText = ""
+    }
 
     val initialRule = remember { RecurrenceRule.decode(initial?.recurrence) }
     var recurrenceType by remember {
@@ -112,7 +132,7 @@ fun AddTaskDialog(
             )
         },
         text = {
-            Column {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
@@ -130,6 +150,44 @@ fun AddTaskDialog(
                     supportingText = if (description.length > 5000) ({ Text("Use até 5000 caracteres") }) else null,
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                Text(
+                    text = "Checklist",
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
+                )
+                checklist.forEachIndexed { index, item ->
+                    ChecklistEditorRow(
+                        item = item,
+                        canMoveUp = index > 0,
+                        canMoveDown = index < checklist.lastIndex,
+                        onChange = { changed -> checklist = checklist.toMutableList().also { it[index] = changed } },
+                        onMove = { offset ->
+                            checklist = checklist.toMutableList().also {
+                                it[index] = checklist[index + offset]
+                                it[index + offset] = item
+                            }
+                        },
+                        onRemove = { checklist = checklist.filterIndexed { i, _ -> i != index } }
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = newItemText,
+                        onValueChange = { newItemText = it.take(Checklist.MAX_TEXT) },
+                        placeholder = {
+                            Text(if (checklist.size >= Checklist.MAX_ITEMS) "Limite de ${Checklist.MAX_ITEMS} itens" else "Novo item")
+                        },
+                        enabled = checklist.size < Checklist.MAX_ITEMS,
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { addItem() }),
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = { addItem() }, enabled = newItemText.isNotBlank() && checklist.size < Checklist.MAX_ITEMS) {
+                        Icon(Icons.Default.Add, contentDescription = "Adicionar item")
+                    }
+                }
 
                 if (isEditing) {
                     Row(
@@ -265,6 +323,9 @@ fun AddTaskDialog(
                         RecurrenceType.DAILY -> RecurrenceRule.Daily
                         RecurrenceType.WEEKLY -> if (weeklyDays.isNotEmpty()) RecurrenceRule.Weekly(weeklyDays) else null
                     }
+                    val pending = newItemText.trim()
+                    val items = if (pending.isNotEmpty() && checklist.size < Checklist.MAX_ITEMS)
+                        checklist + ChecklistItem(text = pending) else checklist
                     onConfirm(
                         TaskFormResult(
                             title = title,
@@ -273,7 +334,8 @@ fun AddTaskDialog(
                             deadline = deadline,
                             priority = priority,
                             recurrence = rule?.encode(),
-                            tagIds = selectedTagIds
+                            tagIds = selectedTagIds,
+                            checklist = Checklist.cleaned(items)
                         )
                     )
                 },
@@ -338,6 +400,43 @@ fun AddTaskDialog(
             }
         ) {
             DatePicker(state = deadlinePickerState)
+        }
+    }
+}
+
+@Composable
+private fun ChecklistEditorRow(
+    item: ChecklistItem,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
+    onChange: (ChecklistItem) -> Unit,
+    onMove: (Int) -> Unit,
+    onRemove: () -> Unit
+) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Checkbox(
+            checked = item.done,
+            onCheckedChange = { onChange(item.copy(done = it)) },
+            modifier = Modifier.size(36.dp)
+        )
+        OutlinedTextField(
+            value = item.text,
+            onValueChange = { onChange(item.copy(text = it.take(Checklist.MAX_TEXT))) },
+            placeholder = { Text("Item vazio será removido") },
+            singleLine = true,
+            textStyle = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f)
+        )
+        Column {
+            IconButton(onClick = { onMove(-1) }, enabled = canMoveUp, modifier = Modifier.size(28.dp)) {
+                Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Subir item")
+            }
+            IconButton(onClick = { onMove(1) }, enabled = canMoveDown, modifier = Modifier.size(28.dp)) {
+                Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Descer item")
+            }
+        }
+        IconButton(onClick = onRemove, modifier = Modifier.size(36.dp)) {
+            Icon(Icons.Default.Close, contentDescription = "Remover item")
         }
     }
 }

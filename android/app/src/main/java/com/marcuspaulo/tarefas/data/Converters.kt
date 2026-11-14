@@ -15,4 +15,10 @@ class Converters {
 
     @TypeConverter
     fun toPriority(value: String): Priority = Priority.valueOf(value)
+
+    @TypeConverter
+    fun fromChecklist(items: List<ChecklistItem>): String = Checklist.encode(items)
+
+    @TypeConverter
+    fun toChecklist(value: String): List<ChecklistItem> = Checklist.decode(value)
 }

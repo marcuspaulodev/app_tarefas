@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 class CreateTask
 {
     /**
-     * @param  array{id?: ?string, title: string, description?: ?string, date: string, deadline?: ?string, priority?: ?string, recurrence?: ?string}  $attributes
+     * @param  array{id?: ?string, title: string, description?: ?string, checklist?: ?list<array{id: string, text: string, done: bool}>, date: string, deadline?: ?string, priority?: ?string, recurrence?: ?string}  $attributes
      * @param  list<string>  $tagIds
      */
     public function handle(User $user, array $attributes, array $tagIds = []): Task

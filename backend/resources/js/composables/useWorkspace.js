@@ -1,5 +1,6 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { endpoints, initializeCsrf, request } from '../lib/api';
+import { toggleItem } from '../lib/checklist';
 import { addDays, calendarDays, localDate, monthOf } from '../lib/tasks';
 
 export function useWorkspace() {
@@ -55,9 +56,18 @@ export function useWorkspace() {
         }
     }
 
-    async function authenticate(mode, credentials) {
+    /**
+     * Com reloadAt, recarrega nesse endereço em vez de abrir o espaço nesta página. A tela de
+     * redefinição de senha usa Referrer-Policy: no-referrer, e sem Referer/Origin o Sanctum
+     * não reconhece a sessão do site nas chamadas GET seguintes (respondem 401).
+     */
+    async function authenticate(mode, credentials, { reloadAt = null } = {}) {
         await initializeCsrf();
         const response = await request(endpoints[mode], { method: 'POST', body: credentials });
+        if (reloadAt) {
+            window.location.replace(reloadAt);
+            return;
+        }
         notice.value = '';
         selectToday();
         user.value = response.data;
@@ -173,6 +183,21 @@ export function useWorkspace() {
         }
     }
 
+    /** Marca ou desmarca um item enviando o checklist inteiro. Devolve se deu certo. */
+    async function toggleChecklistItem(task, itemId) {
+        if (pendingTasks.value.has(task.id)) return false;
+        pendingTasks.value.add(task.id);
+        try {
+            await mutate(`${endpoints.tasks}/${task.id}`, { method: 'PATCH', body: { checklist: toggleItem(task.checklist, itemId) } });
+            return true;
+        } catch (error) {
+            handleError(error);
+            return false;
+        } finally {
+            pendingTasks.value.delete(task.id);
+        }
+    }
+
     function saveTag(tag, attributes) {
         return mutate(tag ? `${endpoints.tags}/${tag.id}` : endpoints.tags, { method: tag ? 'PATCH' : 'POST', body: attributes });
     }
@@ -215,6 +240,6 @@ export function useWorkspace() {
         user, booting, notice, today, selectedDate, month, view, searchInput, searchTerm, selectedTag,
         tasks, tags, counts, loading, loadError, pendingTasks, toast, todayCount, upcomingCount,
         authenticate, logout, selectDay, selectToday, selectView, clearSearch, reload, notify, handleError,
-        saveTask, toggleTask, deleteTask, saveTag, deleteTag,
+        saveTask, toggleTask, toggleChecklistItem, deleteTask, saveTag, deleteTag,
     };
 }

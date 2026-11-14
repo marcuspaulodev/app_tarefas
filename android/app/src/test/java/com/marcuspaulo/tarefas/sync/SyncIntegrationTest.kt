@@ -5,6 +5,8 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.marcuspaulo.tarefas.data.AppDatabase
+import com.marcuspaulo.tarefas.data.Checklist
+import com.marcuspaulo.tarefas.data.ChecklistItem
 import com.marcuspaulo.tarefas.data.Ids
 import com.marcuspaulo.tarefas.data.Priority
 import com.marcuspaulo.tarefas.data.Task
@@ -200,6 +202,29 @@ class SyncIntegrationTest {
         assertEquals(2, remote().tasks.size)
         assertConverged(db)
         assertConverged(other)
+    }
+
+    @Test fun checklistRoundTripsBetweenAndroidWebAndRecurrence() = runBlocking {
+        val warmUp = ChecklistItem(text = "Aquecer 🔥", done = true)
+        val workout = ChecklistItem(text = "Treino")
+        val task = repository().addTask("Academia", "", day, null, Priority.MEDIUM, "DAILY", emptySet(), listOf(warmUp, workout))
+        sync()
+        assertEquals(listOf(warmUp, workout), remote().tasks.single().task.checklist)
+
+        val stretch = ChecklistItem(text = "Alongar")
+        request(session, "PATCH", "tasks/${task.id}", JSONObject()
+            .put("checklist", Checklist.toJson(listOf(warmUp, workout.copy(done = true), stretch))))
+        sync()
+        assertEquals(listOf(true, true, false), db.taskDao().getById(task.id)!!.checklist.map { it.done })
+
+        now = remote().tasks.single().task.updatedAt + 1
+        repository().toggleChecklistItem(task.id, workout.id)
+        repository().toggleCompleted(db.taskDao().getById(task.id)!!, emptySet(), day)
+        sync()
+        val next = remote().tasks.single { it.task.id == Ids.occurrenceId(task.id, day.plusDays(1)) }.task
+        assertEquals(listOf(workout, stretch), next.checklist)
+        assertEquals(listOf(true, false, false), remote().tasks.single { it.task.id == task.id }.task.checklist.map { it.done })
+        assertConverged(db)
     }
 
     @Test fun remoteDeletionsRemoveReferencesWithoutLosingNewerLocalEdits() = runBlocking {

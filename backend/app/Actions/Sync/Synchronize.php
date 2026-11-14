@@ -21,7 +21,7 @@ class Synchronize
      * O cursor mede escritas confirmadas, não o relógio dos aparelhos. A trava do
      * usuário serializa tanto as escritas quanto a leitura que produz o cursor.
      *
-     * @param  list<array{id: string, title: string, description: ?string, date: string, original_date: string, deadline: ?string, priority: string, recurrence: ?string, series_id: ?string, completed: bool, created_at: int, updated_at: int, deleted_at: ?int, tag_ids: list<string>}>  $tasks
+     * @param  list<array{id: string, title: string, description: ?string, checklist?: list<array{id: string, text: string, done: bool}>, date: string, original_date: string, deadline: ?string, priority: string, recurrence: ?string, series_id: ?string, completed: bool, created_at: int, updated_at: int, deleted_at: ?int, tag_ids: list<string>}>  $tasks
      * @param  list<array{id: string, name: string, color_hex: string, created_at?: int, updated_at: int, deleted_at: ?int}>  $tags
      * @return array{cursor: int, server_time: int, tasks: Collection<int, Task>, tags: Collection<int, Tag>}
      */
@@ -81,6 +81,9 @@ class Synchronize
                     'series_id' => $attributes['series_id'],
                     'completed' => $attributes['completed'],
                 ]);
+                if (array_key_exists('checklist', $attributes)) {
+                    $task->checklist = $attributes['checklist'];
+                }
                 $this->stamp($task, $attributes, $version);
                 $task->save();
                 $task->tags()->sync(array_values(array_filter(

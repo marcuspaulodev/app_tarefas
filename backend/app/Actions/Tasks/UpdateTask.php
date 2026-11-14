@@ -12,7 +12,7 @@ class UpdateTask
      * Mudar a data segue a regra do app: manter o dia em que a tarefa aparece hoje
      * preserva o "atrasada desde"; escolher outro dia recomeça a contagem.
      *
-     * @param  array{title?: string, description?: ?string, date?: string, deadline?: ?string, priority?: string, recurrence?: ?string}  $attributes
+     * @param  array{title?: string, description?: ?string, checklist?: ?list<array{id: string, text: string, done: bool}>, date?: string, deadline?: ?string, priority?: string, recurrence?: ?string}  $attributes
      * @param  list<string>|null  $tagIds  null mantém as tags atuais.
      */
     public function handle(Task $task, array $attributes, ?array $tagIds, ?string $today): Task

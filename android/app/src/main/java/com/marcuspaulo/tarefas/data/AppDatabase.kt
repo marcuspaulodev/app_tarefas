@@ -11,7 +11,7 @@ import com.marcuspaulo.tarefas.sync.SessionStore
 
 @Database(
     entities = [Task::class, Tag::class, TaskTagCrossRef::class, SyncState::class],
-    version = 6,
+    version = 7,
     exportSchema = true
 )
 @TypeConverters(Converters::class)

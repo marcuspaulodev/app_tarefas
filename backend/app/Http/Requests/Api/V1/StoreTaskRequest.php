@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1;
 
 use App\Enums\Priority;
+use App\Rules\ChecklistItems;
 use App\Rules\RecurrenceRuleFormat;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -29,6 +30,7 @@ class StoreTaskRequest extends FormRequest
             'id' => ['nullable', 'uuid', 'unique:tasks,id'],
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:5000'],
+            'checklist' => ['nullable', 'array', new ChecklistItems],
             'date' => ['required', 'date_format:Y-m-d'],
             'deadline' => ['nullable', 'date_format:Y-m-d'],
             'priority' => ['nullable', Rule::enum(Priority::class)],

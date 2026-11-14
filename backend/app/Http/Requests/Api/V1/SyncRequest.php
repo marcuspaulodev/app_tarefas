@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1;
 
 use App\Enums\Priority;
+use App\Rules\ChecklistItems;
 use App\Rules\RecurrenceRuleFormat;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -20,6 +21,7 @@ class SyncRequest extends FormRequest
 
     /**
      * Estados completos, com os horários em milissegundos UTC usados pelo Android.
+     * Sem checklist (apps anteriores a ele), o checklist guardado é mantido.
      *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
@@ -30,10 +32,11 @@ class SyncRequest extends FormRequest
         return [
             'cursor' => ['required', 'integer', 'min:0'],
             'tasks' => ['sometimes', 'array', 'list', 'max:100'],
-            'tasks.*' => ['array:id,title,description,date,original_date,deadline,priority,recurrence,series_id,completed,created_at,updated_at,deleted_at,tag_ids'],
+            'tasks.*' => ['array:id,title,description,checklist,date,original_date,deadline,priority,recurrence,series_id,completed,created_at,updated_at,deleted_at,tag_ids'],
             'tasks.*.id' => ['required', 'uuid', 'distinct:ignore_case'],
             'tasks.*.title' => ['required', 'string', 'max:255'],
             'tasks.*.description' => ['present', 'nullable', 'string', 'max:5000'],
+            'tasks.*.checklist' => ['sometimes', 'array', new ChecklistItems],
             'tasks.*.date' => ['required', 'date_format:Y-m-d'],
             'tasks.*.original_date' => ['required', 'date_format:Y-m-d'],
             'tasks.*.deadline' => ['present', 'nullable', 'date_format:Y-m-d'],

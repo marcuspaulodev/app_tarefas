@@ -3,6 +3,8 @@ package com.marcuspaulo.tarefas.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.marcuspaulo.tarefas.data.Checklist
+import com.marcuspaulo.tarefas.data.ChecklistItem
 import com.marcuspaulo.tarefas.data.DateCount
 import com.marcuspaulo.tarefas.data.Priority
 import com.marcuspaulo.tarefas.data.Tag
@@ -114,11 +116,12 @@ class TaskViewModel(
         deadline: LocalDate?,
         priority: Priority,
         recurrence: String?,
-        tagIds: Set<String>
+        tagIds: Set<String>,
+        checklist: List<ChecklistItem> = emptyList()
     ) {
         if (title.isBlank()) return
         viewModelScope.launch {
-            val task = repository.addTask(title.trim(), description.trim(), date, deadline, priority, recurrence, tagIds)
+            val task = repository.addTask(title.trim(), description.trim(), date, deadline, priority, recurrence, tagIds, checklist)
             reminderScheduler.scheduleForTask(task)
         }
     }
@@ -146,7 +149,8 @@ class TaskViewModel(
         deadline: LocalDate?,
         priority: Priority,
         recurrence: String?,
-        tagIds: Set<String>
+        tagIds: Set<String>,
+        checklist: List<ChecklistItem> = emptyList()
     ) {
         val original = _editingTask.value?.task ?: return
         if (title.isBlank()) return
@@ -156,7 +160,8 @@ class TaskViewModel(
                 description = description.trim(),
                 deadline = deadline,
                 priority = priority,
-                recurrence = recurrence
+                recurrence = recurrence,
+                checklist = checklist
             )
             val updated = repository.updateTask(edited, tagIds, selectedDate = date) ?: return@launch
             if (deadline != null) {
@@ -179,6 +184,33 @@ class TaskViewModel(
                 reminderScheduler.scheduleForTask(updated)
             }
         }
+    }
+
+    /** Tarefa cujo checklist acabou de ser completado, para perguntar se ela também deve ser concluída. */
+    private val _completionPrompt = MutableStateFlow<TaskWithTags?>(null)
+    val completionPrompt: StateFlow<TaskWithTags?> = _completionPrompt
+
+    fun toggleChecklistItem(taskWithTags: TaskWithTags, itemId: String) {
+        viewModelScope.launch {
+            val completes = Checklist.completesChecklist(taskWithTags.task, itemId)
+            val updated = repository.toggleChecklistItem(taskWithTags.task.id, itemId) ?: return@launch
+            if (completes && updated.checklist.all { it.done } && !updated.completed) {
+                _completionPrompt.value = taskWithTags.copy(task = updated)
+            }
+        }
+    }
+
+    fun confirmCompletion() {
+        val taskWithTags = _completionPrompt.value ?: return
+        _completionPrompt.value = null
+        viewModelScope.launch {
+            val current = repository.taskWithTagsById(taskWithTags.task.id) ?: return@launch
+            if (!current.task.completed) toggleCompleted(current)
+        }
+    }
+
+    fun dismissCompletionPrompt() {
+        _completionPrompt.value = null
     }
 
     fun deleteTask(task: Task) {

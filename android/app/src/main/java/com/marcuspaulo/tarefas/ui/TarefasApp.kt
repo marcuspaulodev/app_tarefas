@@ -70,6 +70,7 @@ fun TarefasApp(
     val tags by viewModel.tags.collectAsStateWithLifecycle()
     val tagFilter by viewModel.tagFilter.collectAsStateWithLifecycle()
     val editingTask by viewModel.editingTask.collectAsStateWithLifecycle()
+    val completionPrompt by viewModel.completionPrompt.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val searchResults by viewModel.searchResults.collectAsStateWithLifecycle()
 
@@ -165,6 +166,7 @@ fun TarefasApp(
                                 tags = taskWithTags.tags,
                                 onToggle = { viewModel.toggleCompleted(taskWithTags) },
                                 onDelete = { viewModel.deleteTask(taskWithTags.task) },
+                                onToggleItem = { viewModel.toggleChecklistItem(taskWithTags, it) },
                                 onEdit = {
                                     viewModel.startEditing(taskWithTags)
                                     showSearch = false
@@ -224,7 +226,8 @@ fun TarefasApp(
                                 tags = taskWithTags.tags,
                                 onToggle = { viewModel.toggleCompleted(taskWithTags) },
                                 onDelete = { viewModel.deleteTask(taskWithTags.task) },
-                                onEdit = { viewModel.startEditing(taskWithTags) }
+                                onEdit = { viewModel.startEditing(taskWithTags) },
+                                onToggleItem = { viewModel.toggleChecklistItem(taskWithTags, it) }
                             )
                         }
                     }
@@ -241,7 +244,7 @@ fun TarefasApp(
             onConfirm = { result ->
                 viewModel.addTask(
                     result.title, result.description, result.date, result.deadline,
-                    result.priority, result.recurrence, result.tagIds
+                    result.priority, result.recurrence, result.tagIds, result.checklist
                 )
                 showAddDialog = false
             }
@@ -258,8 +261,22 @@ fun TarefasApp(
             onConfirm = { result ->
                 viewModel.saveEdit(
                     result.title, result.description, result.date, result.deadline,
-                    result.priority, result.recurrence, result.tagIds
+                    result.priority, result.recurrence, result.tagIds, result.checklist
                 )
+            }
+        )
+    }
+
+    completionPrompt?.let { taskWithTags ->
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissCompletionPrompt() },
+            title = { Text("Checklist completo") },
+            text = { Text("Todos os itens de \u201c${taskWithTags.task.title}\u201d estão marcados. Quer concluir a tarefa?") },
+            confirmButton = {
+                TextButton(onClick = { viewModel.confirmCompletion() }) { Text("Concluir tarefa") }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissCompletionPrompt() }) { Text("Agora não") }
             }
         )
     }

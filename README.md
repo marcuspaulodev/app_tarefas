@@ -308,7 +308,7 @@ comandos como “alternar conclusão” nem apenas os campos editados:
 
 | Registro | Campos enviados |
 |---|---|
-| Tarefa | `id`, `title`, `description`, `date`, `original_date`, `deadline`, `priority`, `recurrence`, `series_id`, `completed`, `created_at`, `updated_at`, `deleted_at`, `tag_ids` |
+| Tarefa | `id`, `title`, `description`, `checklist`, `date`, `original_date`, `deadline`, `priority`, `recurrence`, `series_id`, `completed`, `created_at`, `updated_at`, `deleted_at`, `tag_ids` |
 | Tag | `id`, `name`, `color_hex`, `updated_at`, `deleted_at`; `created_at` é opcional |
 
 Os IDs são UUIDs gerados no aparelho. `priority` usa `LOW`, `MEDIUM` ou `HIGH`;
@@ -316,6 +316,13 @@ Os IDs são UUIDs gerados no aparelho. `priority` usa `LOW`, `MEDIUM` ou `HIGH`;
 Datas de calendário continuam como `YYYY-MM-DD`, sem conversão de fuso.
 `deadline`, `recurrence` e `series_id` devem estar presentes, podendo ser `null`.
 `description` pode ser vazia; `tag_ids` pode ser `[]`.
+
+`checklist` é a lista ordenada de itens da tarefa, cada um com `id` (UUID),
+`text` (1 a 255 caracteres) e `done` (booleano), até 50 itens e sem IDs repetidos
+na mesma tarefa. A lista viaja inteira, como os demais campos. Se `checklist` não
+for enviado (apps anteriores ao checklist), o servidor mantém os itens guardados.
+Nas rotas `tasks`, o mesmo campo é aceito em `POST` e `PATCH` e sempre volta nas
+respostas, como `[]` quando a tarefa não tem itens.
 
 Nesta rota, `created_at`, `updated_at` e `deleted_at` são números inteiros em
 **milissegundos desde Unix epoch**, como no Room. `deleted_at: null` significa

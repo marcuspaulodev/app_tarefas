@@ -23,7 +23,9 @@ data class Task(
     val updatedAt: Long = createdAt,
     /** Exclusão lógica: a linha fica para a sincronização avisar os outros aparelhos. */
     val deletedAt: Long? = null,
-    @ColumnInfo(defaultValue = "1") val needsSync: Boolean = true
+    @ColumnInfo(defaultValue = "1") val needsSync: Boolean = true,
+    /** Itens do checklist, na ordem em que aparecem. */
+    @ColumnInfo(defaultValue = "[]") val checklist: List<ChecklistItem> = emptyList()
 ) {
     val isOverdueRollover: Boolean
         get() = !completed && originalDate.isBefore(LocalDate.now())

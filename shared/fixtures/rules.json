@@ -1,5 +1,5 @@
 {
-  "_comment": "Casos compartilhados entre o app (Kotlin) e o backend (PHP). Os dois lados rodam estes casos nos testes; se uma regra mudar, mude aqui e nos dois. Dias da semana em WEEKLY seguem a ISO 8601 (1 = segunda, 7 = domingo).",
+  "_comment": "Casos compartilhados entre o app (Kotlin) e o backend (PHP). Os dois lados rodam estes casos nos testes; se uma regra mudar, mude aqui e nos dois. Dias da semana em WEEKLY seguem a ISO 8601 (1 = segunda, 7 = domingo). Em next_checklist, a próxima ocorrência de uma recorrente recebe só os itens pendentes, na mesma ordem e com os mesmos IDs.",
   "next_occurrence": [
     {
       "rule": "DAILY",
@@ -95,6 +95,84 @@
       "completed": false,
       "today": "2026-11-10",
       "shown_on": "2026-11-15"
+    }
+  ],
+  "next_checklist": [
+    {
+      "checklist": [],
+      "next": []
+    },
+    {
+      "checklist": [
+        {
+          "id": "0193a5b0-7c00-7000-8000-00000000000a",
+          "text": "Aquecer",
+          "done": true
+        },
+        {
+          "id": "0193a5b0-7c00-7000-8000-00000000000b",
+          "text": "Treino",
+          "done": false
+        },
+        {
+          "id": "0193a5b0-7c00-7000-8000-00000000000c",
+          "text": "Alongar",
+          "done": false
+        }
+      ],
+      "next": [
+        {
+          "id": "0193a5b0-7c00-7000-8000-00000000000b",
+          "text": "Treino",
+          "done": false
+        },
+        {
+          "id": "0193a5b0-7c00-7000-8000-00000000000c",
+          "text": "Alongar",
+          "done": false
+        }
+      ]
+    },
+    {
+      "checklist": [
+        {
+          "id": "0193a5b0-7c00-7000-8000-00000000000a",
+          "text": "Aquecer",
+          "done": true
+        },
+        {
+          "id": "0193a5b0-7c00-7000-8000-00000000000b",
+          "text": "Treino",
+          "done": true
+        }
+      ],
+      "next": []
+    },
+    {
+      "checklist": [
+        {
+          "id": "0193a5b0-7c00-7000-8000-00000000000c",
+          "text": "Alongar",
+          "done": false
+        },
+        {
+          "id": "0193a5b0-7c00-7000-8000-00000000000a",
+          "text": "Aquecer",
+          "done": false
+        }
+      ],
+      "next": [
+        {
+          "id": "0193a5b0-7c00-7000-8000-00000000000c",
+          "text": "Alongar",
+          "done": false
+        },
+        {
+          "id": "0193a5b0-7c00-7000-8000-00000000000a",
+          "text": "Aquecer",
+          "done": false
+        }
+      ]
     }
   ]
 }

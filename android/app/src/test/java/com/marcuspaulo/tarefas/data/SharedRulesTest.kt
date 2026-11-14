@@ -73,4 +73,15 @@ class SharedRulesTest {
             )
         }
     }
+
+    @Test
+    fun `checklist da proxima ocorrencia`() {
+        cases("next_checklist").forEach { case ->
+            assertEquals(
+                case.toString(),
+                Checklist.fromJson(case.getJSONArray("next")),
+                Checklist.forNextOccurrence(Checklist.fromJson(case.getJSONArray("checklist")))
+            )
+        }
+    }
 }

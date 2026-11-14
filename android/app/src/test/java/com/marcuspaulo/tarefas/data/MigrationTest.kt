@@ -171,4 +171,23 @@ class MigrationTest {
         assertEquals(42L, db.syncStateDao().get()!!.cursor)
     }
 
+    @Test
+    fun `migracao 6 para 7 deixa as tarefas sem checklist e sem reenviar`() = runBlocking {
+        val id = Ids.newId()
+        helper.createDatabase(dbName, 6).apply {
+            execSQL("INSERT INTO tasks (id, title, description, date, originalDate, priority, completed, createdAt, updatedAt, needsSync) VALUES (?, 'Mercado', 'leite', 20000, 20000, 'LOW', 0, 1000, 2000, 0)", arrayOf(id))
+            close()
+        }
+        helper.runMigrationsAndValidate(dbName, 7, true, MIGRATION_6_7).close()
+        val db = openMigrated()
+        val task = db.taskDao().getById(id)!!
+        assertEquals(emptyList<ChecklistItem>(), task.checklist)
+        assertEquals("leite", task.description)
+        assertEquals(2000L, task.updatedAt)
+        assertEquals(false, task.needsSync)
+
+        TaskRepository(db).updateTask(task.copy(checklist = listOf(ChecklistItem(text = "Pão"))), emptySet())
+        assertEquals(listOf("Pão"), db.taskDao().getById(id)!!.checklist.map { it.text })
+    }
+
 }
