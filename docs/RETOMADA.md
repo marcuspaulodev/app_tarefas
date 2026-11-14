@@ -53,7 +53,7 @@ acrescentados o widget de pendentes e a checagem diária às 8h, 13h e 18h.
 | Recuperação de senha | Links no web/Android, redefinição no navegador, revogação de sessões e login obrigatório no app | [#8](https://github.com/marcuspaulodev/app_tarefas/pull/8) | `0139d39` |
 | Confirmação de e-mail | Envio no cadastro, reenvio, links assinados, status no web/Android e preservação da sincronização | [#9](https://github.com/marcuspaulodev/app_tarefas/pull/9) | `c8a42bb` |
 | Ambiente Podman | Containers de desenvolvimento para MySQL e PHP/Node | [#11](https://github.com/marcuspaulodev/app_tarefas/pull/11) | `524d3e5` |
-| Checklist (subtarefas) | Itens dentro da tarefa no web, Android, widget, sync, backup e recorrência; Room v7 | branch `subtarefas`, PR ainda não aberto | — |
+| Checklist (subtarefas) | Itens dentro da tarefa no web, Android, widget, sync, backup e recorrência; Room v7 | [#12](https://github.com/marcuspaulodev/app_tarefas/pull/12) | merge do PR #12 |
 
 O último commit de implementação é `e2a7a0e` (confirmação de e-mail), já incluído
 no merge do PR #9. Os detalhes de implementação continuam no histórico do Git;
